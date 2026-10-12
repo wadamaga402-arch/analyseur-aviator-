@@ -1,0 +1,936 @@
+<title>Analyseur Aviator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;800&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: control strip on top, then one column of panels; two columns on wide screens (data left, analysis right) */
+:root{
+  color-scheme:dark;
+  --bg:#0b0a0b; --panel:#151213; --panel-2:#1e191a; --line:#2c2426;
+  --fg:#f5f1f1; --muted:#a0918f; --red:#e3263b; --red-soft:#ff6b78; --red-ink:#fff;
+  --c1:#6f6a75; --c2:#d9d4d4; --c3:#ff7b85; --c4:#e3263b;
+  --ok:#5fd08a; --warn:#f0b54a;
+  --f-display:"Saira Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Source Sans 3",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:18px 48px;display:flex;flex-direction:column;gap:14px}
+header.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;border-bottom:2px solid var(--red);padding-bottom:10px}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(28px,6vw,40px);line-height:.95;margin:0;letter-spacing:.01em;text-transform:uppercase}
+h1 span{color:var(--red)}
+.tag{font-size:12px;color:var(--muted)}
+.badges{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pill{font-family:var(--f-mono);font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--muted);display:block}
+.pill.off i{background:var(--red)} .pill.manual i{background:var(--c2)} .pill.demo{border-color:var(--warn);color:var(--warn)} .pill.demo i{background:var(--warn)}
+.pill.q-bad{color:var(--red-soft)} .pill.q-mid{color:var(--warn)} .pill.q-good{color:var(--ok)}
+.demo-banner{background:repeating-linear-gradient(-45deg,#3a2a08 0 12px,#2a1f07 12px 24px);border:1px solid var(--warn);color:var(--warn);border-radius:10px;padding:8px 12px;font-weight:700;font-size:14px}
+.cols{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:900px){.cols{grid-template-columns:1.15fr 1fr;align-items:start}}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel h2{font-family:var(--f-display);font-weight:600;font-size:17px;letter-spacing:.06em;text-transform:uppercase;margin:0;color:var(--muted);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button,select,input,textarea{font:inherit;color:var(--fg)}
+button{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer;font-weight:600}
+button:hover{border-color:var(--muted)}
+button.primary{background:var(--red);border-color:var(--red);color:var(--red-ink)}
+button.ghost{background:none}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--red-soft);outline-offset:2px}
+select,input,textarea{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+textarea{width:100%;min-height:64px;resize:vertical;font-family:var(--f-mono);font-size:13px}
+label{font-size:12px;color:var(--muted)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;background:var(--panel-2);padding:6px 11px;font-family:var(--f-mono);font-size:13px}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.last{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.big{font-family:var(--f-display);font-weight:800;font-size:clamp(54px,14vw,84px);line-height:.9;font-variant-numeric:tabular-nums}
+.meta{font-family:var(--f-mono);font-size:12px;color:var(--muted);text-align:right}
+.chips{display:flex;flex-wrap:wrap;gap:5px;max-height:220px;overflow-y:auto}
+.chip{font-family:var(--f-mono);font-size:12.5px;padding:2px 7px;border-radius:6px;font-variant-numeric:tabular-nums;border:1px solid transparent}
+.k1{background:color-mix(in srgb,var(--c1) 30%,transparent);color:#cfcad3}
+.k2{background:color-mix(in srgb,var(--c2) 18%,transparent);color:var(--c2)}
+.k3{background:color-mix(in srgb,var(--c3) 22%,transparent);color:var(--c3)}
+.k4{background:var(--c4);color:#fff}
+.chartbox{position:relative;width:100%;height:220px}
+canvas{display:block;width:100%;height:100%}
+.cats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+@media(max-width:560px){.cats{grid-template-columns:repeat(2,1fr)}}
+.cat{background:var(--panel-2);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:3px;min-width:0;border-top:3px solid var(--c1)}
+.cat.k2b{border-top-color:var(--c2)} .cat.k3b{border-top-color:var(--c3)} .cat.k4b{border-top-color:var(--c4)}
+.cat .lbl{font-size:12px;color:var(--muted)}
+.cat .pct{font-family:var(--f-mono);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
+.cat .sub{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.kv div{background:var(--panel-2);border-radius:8px;padding:8px 10px;min-width:0}
+.kv span{display:block;font-size:12px;color:var(--muted)}
+.kv b{font-family:var(--f-mono);font-size:17px;font-variant-numeric:tabular-nums}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-size:12px;color:var(--muted);font-weight:600}
+td{font-family:var(--f-mono)}
+.neg{color:var(--red-soft)}
+.note{font-size:13.5px;color:var(--muted);margin:0}
+.note b{color:var(--fg)}
+.callout{background:var(--panel-2);border-left:3px solid var(--red);border-radius:8px;padding:10px 12px;font-size:14px}
+.profiles{display:flex;flex-direction:column;gap:6px}
+.prof{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;cursor:pointer;text-align:left;width:100%}
+.prof[aria-current="true"]{border-color:var(--red)}
+.prof .n{font-weight:700}
+.prof .s{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);grid-column:1/-1}
+.prof .st{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#2a1013;border:1px solid var(--red);border-radius:8px;padding:8px 10px;font-size:14px}
+.err{color:var(--red-soft);font-size:13px;min-height:1em}
+[hidden]{display:none!important}
+#mixPill{white-space:normal;max-width:100%}
+.pill.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 50%,transparent)}
+.tgbody{display:flex;flex-direction:column;gap:10px}
+.tglink{color:var(--fg);font-weight:700;text-decoration:underline;text-decoration-color:var(--red)}
+.keypanel{border-color:var(--red)}
+.chip.s-i{border-color:currentColor}
+.chip.s-c{border-color:currentColor;border-style:dashed}
+.chip.s-t{border-color:currentColor;border-style:dotted;border-width:2px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);align-items:center}
+.capture{border-top:1px dashed var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px}
+.capture > div{display:flex;flex-direction:column;gap:8px}
+.capbtn{background:var(--fg);color:var(--bg);font-weight:700;font-size:14px;padding:9px 13px;border-radius:8px;cursor:pointer}
+.vh{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+#capFile:focus-visible + *, .capbtn:focus-within{outline:2px solid var(--red-soft)}
+.review{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.journal{display:flex;flex-direction:column;gap:6px}
+.jrow{display:grid;grid-template-columns:auto 1fr;gap:10px;font-size:13.5px;background:var(--panel-2);border-radius:8px;padding:7px 10px;border-left:3px solid var(--ok)}
+.jrow.err-row{border-left-color:var(--red)}
+.jrow .jt{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:6px}
+footer b{color:var(--fg)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Analyseur <span>Aviator</span></h1>
+      <div class="tag">Outil indépendant de statistiques. Non affilié à Bwin ni à Spribe.</div>
+    </div>
+    <div class="badges">
+      <span class="pill off" id="srcPill"><i></i><span id="srcTxt">Direct : indisponible</span></span>
+      <span class="pill manual" id="mixPill">Données : —</span>
+      <span class="pill" id="srvPill" hidden>Serveur : —</span>
+      <span class="pill" id="qualPill">Qualité : —</span>
+      <span class="pill" id="updPill">Mise à jour : —</span>
+    </div>
+  </header>
+
+  <section class="panel keypanel" id="keyPanel" hidden aria-label="Clé d'accès au serveur">
+    <h2>Clé d'accès à votre serveur</h2>
+    <p class="note">Entrez la clé ADMIN_KEY que vous avez choisie lors de l'installation. Ce n'est pas votre mot de passe Bwin, que le site ne demande jamais.</p>
+    <div class="row">
+      <input id="keyIn" type="password" autocomplete="current-password" placeholder="Clé d'accès (12 caractères min.)" aria-label="Clé d'accès" style="flex:1 1 200px">
+      <button class="primary" id="keyBtn">Se connecter</button>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="keyRemember"> Se souvenir sur cet appareil</label>
+    <div class="err" id="keyErr" role="status"></div>
+  </section>
+
+  <div class="demo-banner" id="demoBanner" hidden>MODE DÉMONSTRATION : les manches affichées sont fictives, générées par la page. Elles ne viennent pas de Bwin.</div>
+
+  <div class="cols">
+    <div class="col">
+      <section class="panel" aria-label="Dernier multiplicateur">
+        <h2>Dernier multiplicateur <span class="row">
+          <button class="primary" id="startBtn">Démarrer l'analyse</button>
+          <button id="stopBtn" disabled>Arrêter l'analyse</button>
+        </span></h2>
+        <div class="last">
+          <div class="big" id="lastVal">—</div>
+          <div class="meta"><div id="profName">—</div><div id="lastSrc"></div><div id="sessInfo">Analyse arrêtée</div></div>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="Saisie des manches">
+        <h2>Ajouter des manches</h2>
+        <div class="row">
+          <input id="oneVal" inputmode="decimal" placeholder="ex. 1,87" aria-label="Multiplicateur" style="flex:1 1 120px">
+          <button class="primary" id="addOne">Ajouter</button>
+          <button id="undoBtn">Annuler la dernière</button>
+        </div>
+        <label for="bulk">Coller plusieurs valeurs (séparées par espaces, retours à la ligne ou ;), de la plus ancienne à la plus récente</label>
+        <textarea id="bulk" placeholder="1,24 3,10 1,02 7,85 …"></textarea>
+        <div class="row">
+          <button id="addBulk">Ajouter la liste</button>
+          <label for="csvFile" style="display:inline-flex;align-items:center;gap:8px">
+            <span>ou fichier CSV :</span>
+            <input type="file" id="csvFile" accept=".csv,.txt,text/csv,text/plain">
+          </label>
+          <button id="exportBtn" class="ghost" hidden>Exporter en CSV</button>
+        </div>
+        <div class="err" id="inputMsg" role="status"></div>
+        <div class="capture">
+          <div id="capBox" hidden>
+            <div class="row">
+              <label for="capFile" class="capbtn">Importer une capture d'écran de l'historique</label>
+              <input type="file" id="capFile" accept="image/png,image/jpeg,image/webp" class="vh">
+              <button id="capStop" hidden>Arrêter</button>
+            </div>
+            <p class="note">Ouvrez l'historique des manches dans Aviator, faites une capture, puis importez-la. Les valeurs lues s'affichent pour vérification : rien n'est ajouté sans votre accord. La lecture utilise votre compte Claude.</p>
+            <div class="err" id="capStatus" role="status"></div>
+            <div id="capReview" class="review" hidden>
+              <label for="capText">Valeurs lues (modifiables)</label>
+              <textarea id="capText"></textarea>
+              <p class="note" id="capInfo"></p>
+              <div class="row"><button class="primary" id="capAdd">Ajouter ces valeurs</button><button id="capCancel">Annuler</button></div>
+            </div>
+          </div>
+          <p class="note" id="capNote">Vérification de la lecture de captures…</p>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="Historique">
+        <h2>Historique <span class="seg" role="group" aria-label="Fenêtre" id="winSeg">
+          <button data-w="10" aria-pressed="false">10</button><button data-w="50" aria-pressed="false">50</button><button data-w="100" aria-pressed="true">100</button><button data-w="500" aria-pressed="false">500</button>
+        </span></h2>
+        <div class="chartbox"><canvas id="chart" aria-label="Évolution des multiplicateurs"></canvas></div>
+        <div class="chips" id="chips"></div>
+        <div class="legend"><span><span class="chip k2 s-m">1,00×</span> saisie</span><span><span class="chip k2 s-i">1,00×</span> CSV</span><span><span class="chip k2 s-c">1,00×</span> capture</span><span><span class="chip k2 s-t">1,00×</span> Telegram</span><span>Aucune manche n'est en direct.</span></div>
+        <p class="note" id="winNote"></p>
+      </section>
+
+      <section class="panel" aria-label="Répartition">
+        <h2>Répartition des manches</h2>
+        <div class="cats" id="cats"></div>
+        <div class="kv" id="kv"></div>
+        <p class="note">Entre crochets : intervalle de confiance à 95 % (Wilson). « Théorie » : ce qu'on attend d'Aviator avec un taux de retour de 97 %.</p>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel" aria-label="Analyse statistique de la prochaine manche">
+        <h2>Analyse statistique de la prochaine manche</h2>
+        <div class="callout"><b>Estimation expérimentale, pas une prédiction.</b> Chaque manche d'Aviator est tirée indépendamment des précédentes (système « provably fair »). La meilleure estimation pour la prochaine manche est la même à chaque manche : celle du tableau ci-dessous.</div>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Atteindre au moins</th><th>Théorie</th><th>Observé ici</th><th>Retour moyen</th></tr></thead>
+          <tbody id="nextTbl"></tbody>
+        </table></div>
+        <p class="note">Le retour moyen est d'environ <b>−3 % par mise</b>, quel que soit le niveau d'encaissement choisi. Aucun niveau n'est gagnant sur la durée.</p>
+      </section>
+
+      <section class="panel" aria-label="Test de dépendance">
+        <h2>Les séries prédisent-elles quelque chose ?</h2>
+        <div class="kv" id="depKv"></div>
+        <p class="note" id="depNote"></p>
+      </section>
+
+      <section class="panel" aria-label="Variations par fenêtre">
+        <h2>Variations selon la fenêtre</h2>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Fenêtre</th><th>Manches</th><th>Médiane</th><th>≥ 2×</th><th>≥ 5×</th></tr></thead>
+          <tbody id="winTbl"></tbody>
+        </table></div>
+        <p class="note">Ces pourcentages bougent d'une fenêtre à l'autre par simple hasard. Plus la fenêtre est petite, plus ils varient.</p>
+      </section>
+
+      <section class="panel" aria-label="Profils de suivi">
+        <h2>Profils de suivi</h2>
+        <div class="profiles" id="profiles"></div>
+        <div class="row">
+          <input id="newProf" placeholder="Nom du profil" aria-label="Nom du nouveau profil" style="flex:1 1 140px" maxlength="40">
+          <button id="addProf">Créer le profil</button>
+        </div>
+        <div id="confirmBox"></div>
+        <p class="note" id="storeNote">Vos profils sont enregistrés dans votre espace privé de cette page. Le site ne demande jamais vos identifiants Bwin.</p>
+      </section>
+
+      <section class="panel" aria-label="Telegram">
+        <h2>Bot Telegram <span class="pill off" id="tgPill">Telegram : —</span></h2>
+        <div id="tgBody" class="tgbody"></div>
+      </section>
+
+      <section class="panel" aria-label="Journal des récupérations">
+        <h2>Journal des récupérations</h2>
+        <div id="journal" class="journal" aria-live="polite"></div>
+      </section>
+
+      <section class="panel" aria-label="Sources de données">
+        <h2>Sources de données</h2>
+        <p class="note"><b>Aucune source en direct n'est autorisée.</b> Bwin ne publie pas d'API pour Aviator. L'API de Spribe, l'éditeur du jeu, est réservée aux casinos sous licence qui intègrent le jeu. Les conditions de Bwin limitent l'usage du site à un usage personnel et interdisent les robots et l'ingénierie inverse du logiciel. Le site ne se connecte donc pas à Bwin, ne lit pas votre compte et ne contourne aucune protection.</p>
+        <p class="note">Les données viennent de ce que vous saisissez, d'un CSV ou d'une capture que vous importez et vérifiez. Chaque manche garde sa source. Le mode démo utilise des valeurs fictives, toujours signalées.</p>
+        <p class="note">Format CSV accepté : une valeur par ligne, ou une colonne nommée « multiplicateur », « multiplier » ou « coef ». Les lignes illisibles sont comptées comme anomalies.</p>
+      </section>
+    </div>
+  </div>
+
+  <footer>
+    <div><b>Les jeux d'argent comportent un risque de perte financière.</b> Ce site ne prédit pas le prochain multiplicateur et ne garantit aucun gain. Les « signaux » vendus sur Telegram ou les réseaux sociaux ne peuvent pas prévoir une manche.</div>
+    <div>Interdit aux moins de 18 ans. Besoin d'aide : Joueurs Info Service (France) 09 74 75 13 13 · Jugar Bien (Espagne) jugarbien.es</div>
+  </footer>
+</div>
+
+<script>
+/* ===== ENGINE START ===== */
+const RTP = 0.97;
+const CATS = [
+  {key:"k1", label:"< 1,50×",       lo:0,   hi:1.5},
+  {key:"k2", label:"1,50× – 2×",    lo:1.5, hi:2},
+  {key:"k3", label:"2× – 5×",       lo:2,   hi:5},
+  {key:"k4", label:"≥ 5×",          lo:5,   hi:Infinity},
+];
+function catOf(v){ for (const c of CATS) if (v>=c.lo && v<c.hi) return c.key; return "k4"; }
+function theoGE(m){ return m<=1 ? 1 : Math.min(1, RTP/m); }
+function theoCat(c){ return theoGE(Math.max(1,c.lo)) - (c.hi===Infinity?0:theoGE(c.hi)); }
+function toNum(tok){
+  if (tok==null) return NaN;
+  const s = String(tok).trim().replace(/[x×\s]/gi,"").replace(",",".");
+  if (!/^\d+(\.\d+)?$/.test(s)) return NaN;
+  return +s;
+}
+function validRound(v){ return Number.isFinite(v) && v>=1 && v<=1e6; }
+function parseList(text){
+  const toks = String(text).split(/[\s;|\n\r\t]+/).filter(Boolean);
+  const ok=[], bad=[];
+  for (const t of toks){ const v=toNum(t); if (validRound(v)) ok.push(Math.round(v*100)/100); else bad.push(t); }
+  return {ok,bad};
+}
+function parseCSV(text){
+  const lines = String(text).split(/\r?\n/).filter(l=>l.trim()!=="");
+  if (!lines.length) return {ok:[],bad:[]};
+  const sep = (lines[0].match(/;/g)||[]).length >= (lines[0].match(/,/g)||[]).length && lines[0].includes(";") ? ";" : (lines[0].includes("\t")?"\t":",");
+  const split = l => l.split(sep).map(c=>c.trim().replace(/^"|"$/g,""));
+  let col = -1, start = 0;
+  const head = split(lines[0]).map(h=>h.toLowerCase());
+  const hi = head.findIndex(h=>/mult|coef|crash|cote/.test(h));
+  if (hi>=0){ col=hi; start=1; }
+  else if (head.every(h=>!Number.isFinite(toNum(h)))) start=1;
+  const ok=[], bad=[];
+  for (let i=start;i<lines.length;i++){
+    const cells = split(lines[i]);
+    let v = NaN;
+    if (col>=0) v = toNum(cells[col]);
+    else if (cells.length===1 || sep===",") {
+      // single column, or comma-separated where a French decimal may have been split
+      v = toNum(cells.length===2 && /^\d+$/.test(cells[0]) && /^\d{1,2}$/.test(cells[1]) ? cells[0]+"."+cells[1] : cells[cells.length-1]);
+    } else v = toNum(cells[cells.length-1]);
+    if (validRound(v)) ok.push(Math.round(v*100)/100); else bad.push(lines[i]);
+  }
+  return {ok,bad};
+}
+function median(a){ if(!a.length) return NaN; const s=[...a].sort((x,y)=>x-y); const m=s.length>>1; return s.length%2?s[m]:(s[m-1]+s[m])/2; }
+function wilson(k,n,z=1.96){
+  if (!n) return [NaN,NaN];
+  const p=k/n, d=1+z*z/n, c=p+z*z/(2*n), r=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n));
+  return [Math.max(0,(c-r)/d), Math.min(1,(c+r)/d)];
+}
+function stats(a){
+  const n=a.length;
+  const counts={k1:0,k2:0,k3:0,k4:0};
+  let sum=0,mn=Infinity,mx=-Infinity,ge2=0;
+  for (const v of a){ counts[catOf(v)]++; sum+=v; if(v<mn)mn=v; if(v>mx)mx=v; if(v>=2)ge2++; }
+  let streak=0; for (let i=n-1;i>=0 && a[i]<2;i--) streak++;
+  return {n,counts,mean:n?sum/n:NaN,median:median(a),min:n?mn:NaN,max:n?mx:NaN,ge2,streak};
+}
+function geRate(a,m){ if(!a.length) return NaN; let k=0; for(const v of a) if(v>=m) k++; return k/a.length; }
+function dependence(a){
+  // P(next >= 2 | previous < 2) vs P(next >= 2 | previous >= 2)
+  let nl=0,kl=0,nh=0,kh=0;
+  for (let i=1;i<a.length;i++){ if(a[i-1]<2){nl++; if(a[i]>=2)kl++;} else {nh++; if(a[i]>=2)kh++;} }
+  return {nl,kl,nh,kh};
+}
+function quality(n,bad){
+  if (n<30) return {lvl:"q-bad",txt:"insuffisante"};
+  if (n<100) return {lvl:"q-mid",txt:"faible"};
+  if (n<500) return {lvl:"q-mid",txt:"correcte"};
+  return {lvl:"q-good",txt:"bonne"};
+}
+const SRC = {m:"saisie manuelle", i:"import CSV", c:"lue sur capture", t:"saisie Telegram", d:"démo (fictive)"};
+function normSrc(rounds, src){
+  // older saved profiles had no source list: their rounds were typed by hand
+  if (!Array.isArray(src) || src.length!==rounds.length) return rounds.map(()=> "m");
+  return src.map(s=> SRC[s] ? s : "m");
+}
+function srcCounts(src){ const c={m:0,i:0,c:0,t:0,d:0}; for (const s of src) c[s]=(c[s]||0)+1; return c; }
+function parseCaptureResult(obj){
+  // expected: {values:[numbers|strings], order:"newest_first"|"oldest_first"|"unknown", unreadable:n}
+  if (!obj || typeof obj!=="object" || !Array.isArray(obj.values)) return {error:"format"};
+  const ok=[], bad=[];
+  for (const t of obj.values){ const v=toNum(t); if (validRound(v)) ok.push(Math.round(v*100)/100); else bad.push(String(t)); }
+  const order = obj.order==="oldest_first" ? "oldest_first" : (obj.order==="newest_first" ? "newest_first" : "unknown");
+  if (order!=="oldest_first") ok.reverse();   // Aviator's history strip shows the newest round first
+  const unreadable = Math.max(0, Math.floor(+obj.unreadable||0));
+  return {ok, bad, order, unreadable};
+}
+function dedupeOverlap(existing, incoming, minK=3){
+  // a new capture often repeats the last rounds already saved: drop that overlap
+  const max=Math.min(existing.length, incoming.length);
+  for (let k=max;k>=minK;k--){
+    let same=true;
+    for (let j=0;j<k;j++) if (existing[existing.length-k+j]!==incoming[j]) { same=false; break; }
+    if (same) return {fresh:incoming.slice(k), dropped:k};
+  }
+  return {fresh:incoming.slice(), dropped:0};
+}
+function demoRound(){
+  // Fictitious round drawn from the theoretical crash distribution (RTP 97%)
+  const u = Math.random();
+  const v = Math.max(1, Math.floor((RTP/(1-u))*100)/100);
+  return Math.min(v, 10000);
+}
+/* ===== ENGINE END ===== */
+
+(function(){
+  const $=id=>document.getElementById(id);
+  const fmtX = v => Number.isFinite(v) ? v.toFixed(2).replace(".",",")+"×" : "—";
+  const fmtP = p => Number.isFinite(p) ? (p*100).toFixed(1).replace(".",",")+" %" : "—";
+  const esc = s => String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const MAXR = 10000;
+
+  const state = {
+    profiles: {},       // id -> {name, rounds, anomalies, createdAt, updatedAt}
+    activeId: "demo",
+    win: 100,
+    running: false, sessionStart: 0, sessionStartAt: null,
+    demoTimer: null,
+    db: null, uid: null, unsub: null, dirty: new Set(), saving: new Set(),
+    confirmDel: null,
+  };
+  const demo = {name:"Démo (données fictives)", rounds:[], src:[], anomalies:0, demo:true, updatedAt:null};
+  for (let i=0;i<180;i++){ demo.rounds.push(demoRound()); demo.src.push("d"); }
+  const journal = [];   // last import attempts, newest first: {at, source, added, ignored, dup, error}
+  function logEvent(e){ journal.unshift(Object.assign({at:Date.now()}, e)); if (journal.length>8) journal.pop(); renderJournal(); }
+  demo.updatedAt = Date.now();
+
+  function active(){ return state.activeId==="demo" ? demo : state.profiles[state.activeId] || demo; }
+
+  /* ---------- storage ---------- */
+  function lsGet(){
+    try{
+      const o=JSON.parse(localStorage.getItem("aviator_profiles")||"{}");
+      for (const k in o){ o[k].rounds=Array.isArray(o[k].rounds)?o[k].rounds:[]; o[k].src=normSrc(o[k].rounds,o[k].src); }
+      return o;
+    }catch(e){ return {}; }
+  }
+  function lsSet(){ try{ localStorage.setItem("aviator_profiles", JSON.stringify(state.profiles)); }catch(e){} }
+  const timers = {};
+  function persist(id){
+    if (id==="demo" || state.server) return;   // in server mode every write goes through the API
+    state.dirty.add(id);
+    clearTimeout(timers[id]);
+    timers[id] = setTimeout(()=>flush(id), 600);
+    if (!state.db) lsSet();
+  }
+  async function flush(id){
+    if (!state.db || !state.uid) { state.dirty.delete(id); return; }
+    if (state.saving.has(id)) { timers[id]=setTimeout(()=>flush(id),400); return; }
+    const p = state.profiles[id];
+    state.saving.add(id);
+    try{
+      const ref = state.db.collection("data/users/"+state.uid).doc(id);
+      if (!p) await ref.delete();
+      else await ref.set({name:p.name, rounds:p.rounds.slice(-MAXR), src:p.src.slice(-MAXR).join(""), anomalies:p.anomalies||0, createdAt:p.createdAt, updatedAt:p.updatedAt});
+      $("storeNote").textContent = "Vos profils sont enregistrés dans votre espace privé de cette page. Le site ne demande jamais vos identifiants Bwin.";
+    }catch(e){
+      $("storeNote").textContent = e && e.code==="quota_exceeded" ? "Espace plein : supprimez un profil pour continuer à enregistrer." : "Enregistrement impossible pour l'instant. Vos données restent affichées tant que la page est ouverte.";
+    }finally{ state.saving.delete(id); state.dirty.delete(id); }
+  }
+  /* ---------- server mode (site hosted on its own Cloudflare server) ---------- */
+  const KEY_LS = "aviator_admin_key";
+  function savedKey(){ try{ return sessionStorage.getItem(KEY_LS) || localStorage.getItem(KEY_LS) || ""; }catch(e){ return ""; } }
+  function storeKey(k, remember){
+    try{ sessionStorage.setItem(KEY_LS,k); if (remember) localStorage.setItem(KEY_LS,k); else localStorage.removeItem(KEY_LS); }catch(e){}
+  }
+  function forgetKey(){ try{ sessionStorage.removeItem(KEY_LS); localStorage.removeItem(KEY_LS); }catch(e){} }
+  async function apiCall(method, path, body){
+    let r;
+    try{
+      r = await fetch(path, {method, headers:{"content-type":"application/json", authorization:"Bearer "+state.server.key}, body: body?JSON.stringify(body):undefined, cache:"no-store"});
+    }catch(e){ throw {status:0, error:"Serveur injoignable. Vérifiez votre connexion Internet."}; }
+    const data = await r.json().catch(()=>({ok:false,error:"Réponse illisible du serveur (HTTP "+r.status+")."}));
+    if (!r.ok || data.ok===false) throw {status:r.status, error:data.error||("Erreur HTTP "+r.status), data};
+    return data;
+  }
+  function serverFail(e, what){
+    const txt = (what?what+" : ":"") + (e && e.error || "erreur inconnue");
+    logEvent({source:"serveur", added:0, ignored:0, dup:0, error:txt});
+    if (e && e.status===401){ forgetKey(); state.server.key=""; state.server.ok=false; renderServer(); }
+    return txt;
+  }
+  async function loadServer(silent){
+    if (!state.server || !state.server.key) return;
+    try{
+      const s = await apiCall("GET","/api/state");
+      const before = {}; for (const id in state.profiles) before[id] = state.profiles[id].src ? state.profiles[id].src.length : 0;
+      const next = {};
+      for (const id in s.profiles){
+        const x = s.profiles[id], r = x.rounds||[];
+        next[id] = {name:x.name, rounds:r, src:normSrc(r, (x.src||"").split("")), anomalies:0, createdAt:x.createdAt, updatedAt:x.updatedAt};
+        const added = r.length - (before[id]||0);
+        if (state.server.ok && before[id]!==undefined && added>0){
+          const fromTg = next[id].src.slice(-added).filter(c=>c==="t").length;
+          if (fromTg) logEvent({source:"saisie Telegram", added:fromTg, ignored:0, dup:0, error:null});
+        }
+      }
+      state.profiles = next; state.tg = s.telegram; state.server.ok = true; state.server.err = "";
+      if (state.activeId!=="demo" && !state.profiles[state.activeId]) state.activeId="demo";
+      render(); renderServer();
+    }catch(e){
+      state.server.ok = false; state.server.err = e.error || "erreur";
+      if (!silent) serverFail(e, "Chargement des données");
+      renderServer();
+    }
+  }
+  async function detectServer(){
+    if (window.claude) return false;                  // inside Claude: keep the private Claude storage
+    try{
+      const r = await fetch("/api/health", {cache:"no-store"});
+      if (!r.ok) return false;
+      const h = await r.json();
+      if (!h || h.service!=="analyseur-aviator") return false;
+      state.server = {key:savedKey(), ok:false, err:"", health:h};
+      return true;
+    }catch(e){ return false; }
+  }
+
+  async function initStore(){
+    if (await detectServer()){
+      state.profiles = {};
+      $("storeNote").textContent = "Vos profils sont enregistrés sur votre serveur Cloudflare. Le site ne demande jamais vos identifiants Bwin.";
+      renderServer(); render();
+      if (state.server.key) await loadServer();
+      setInterval(()=>{ if (state.server.key && document.visibilityState==="visible") loadServer(true); }, state.tg && state.tg.pending ? 4000 : 15000);
+      return;
+    }
+    renderServer();
+    state.profiles = lsGet();
+    render();
+    try{
+      if (!window.claude || !claude.use) return;
+      const [db,user] = await Promise.all([claude.use("db"), claude.use("user")]);
+      const uid = user ? await user.id() : null;
+      if (!db || !uid) return;
+      state.db=db; state.uid=uid;
+      state.unsub = db.collection("data/users/"+uid).onSnapshot(snap=>{
+        const next = {};
+        snap.docs.forEach(d=>{
+          if (state.dirty.has(d.id) && state.profiles[d.id]) { next[d.id]=state.profiles[d.id]; return; }
+          const x=d.data(); const r=Array.isArray(x.rounds)?x.rounds.slice():[];
+          next[d.id]={name:x.name, rounds:r, src:normSrc(r, typeof x.src==="string"?x.src.split(""):x.src), anomalies:x.anomalies||0, createdAt:x.createdAt, updatedAt:x.updatedAt};
+        });
+        state.dirty.forEach(id=>{ if(state.profiles[id] && !next[id]) next[id]=state.profiles[id]; });
+        state.profiles = next;
+        if (state.activeId!=="demo" && !state.profiles[state.activeId]) state.activeId="demo";
+        render();
+      }, ()=>{});
+      const dl = await claude.use("downloads");
+      if (dl) { state.dl = dl; render(); }
+    }catch(e){}
+  }
+  async function initCapture(){
+    const box=$("capBox"), note=$("capNote");
+    try{
+      if (!window.claude || !claude.use) throw 0;
+      const sample = await claude.use("sample");
+      if (!sample) throw 0;
+      const lim = await sample.limits().catch(()=>null);
+      if (!lim || !lim.images) throw 0;
+      state.sample = sample;
+      $("capFile").accept = lim.images.mediaTypes.join(",");
+      box.hidden = false; note.hidden = true;
+    }catch(e){
+      box.hidden = true; note.hidden = false;
+      note.textContent = "Lecture de captures indisponible sur cet appareil ou ce navigateur. Utilisez la saisie, la liste collée ou le CSV.";
+    }
+  }
+
+  /* ---------- actions ---------- */
+  function addRounds(vals, bad, src, extra){
+    const p = active();
+    if (p.demo) {
+      msg("Le profil Démo n'accepte pas de vraies données. Créez ou choisissez un profil.", true);
+      logEvent({source:SRC[src], added:0, ignored:0, dup:0, error:"Profil Démo sélectionné : rien n'a été ajouté."});
+      return false;
+    }
+    p.rounds.push(...vals); p.src.push(...vals.map(()=>src));
+    if (p.rounds.length>MAXR){ const cut=p.rounds.length-MAXR; p.rounds.splice(0,cut); p.src.splice(0,cut); }
+    p.anomalies = (p.anomalies||0) + (bad?bad.length:0);
+    p.updatedAt = Date.now();
+    persist(state.activeId);
+    if (state.server){
+      const id = state.activeId;
+      apiCall("POST","/api/rounds",{profile:id, values:vals, src})
+        .then(()=>loadServer(true))
+        .catch(e=>{ const t=serverFail(e,"Enregistrement sur le serveur"); msg(t+". Les valeurs n'ont pas été enregistrées.", true); loadServer(true); });
+    }
+    const dup = extra&&extra.dup || 0;
+    msg(vals.length + " manche(s) ajoutée(s) · source : " + SRC[src]
+      + (bad&&bad.length ? " · " + bad.length + " valeur(s) ignorée(s) (illisibles ou < 1,00×)" : "")
+      + (dup ? " · " + dup + " déjà présente(s) ignorée(s)" : ""), bad&&bad.length>0);
+    if (src!=="m" || vals.length>1) logEvent({source:SRC[src], added:vals.length, ignored:bad?bad.length:0, dup, error:null});
+    render();
+    return true;
+  }
+  function msg(t, warn){ const m=$("inputMsg"); m.textContent=t; m.style.color = warn?"var(--red-soft)":"var(--ok)"; }
+
+  $("addOne").onclick = ()=>{
+    const v = toNum($("oneVal").value);
+    if (!validRound(v)) { msg("Entrez un multiplicateur valide, par exemple 1,87 (minimum 1,00).", true); return; }
+    addRounds([Math.round(v*100)/100],[],"m"); $("oneVal").value=""; $("oneVal").focus();
+  };
+  $("oneVal").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); $("addOne").click(); } });
+  $("addBulk").onclick = ()=>{
+    const {ok,bad}=parseList($("bulk").value);
+    if (!ok.length) { msg("Aucune valeur lisible dans la liste.", true); logEvent({source:SRC.m, added:0, ignored:bad.length, dup:0, error:"Aucune valeur lisible dans la liste collée."}); return; }
+    if (addRounds(ok,bad,"m")) $("bulk").value="";
+  };
+  $("csvFile").addEventListener("change", e=>{
+    const f=e.target.files&&e.target.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=()=>{
+      const {ok,bad}=parseCSV(r.result);
+      if(!ok.length){ msg("Aucune valeur lisible dans ce fichier.", true); logEvent({source:SRC.i, added:0, ignored:bad.length, dup:0, error:"« "+f.name+" » : aucune valeur lisible. Vérifiez qu'il contient une colonne de multiplicateurs."}); }
+      else { const {fresh,dropped}=dedupeOverlap(active().rounds, ok); addRounds(fresh,bad,"i",{dup:dropped}); }
+      e.target.value="";
+    };
+    r.onerror=()=>{ msg("Lecture du fichier impossible.", true); logEvent({source:SRC.i, added:0, ignored:0, dup:0, error:"Le fichier « "+f.name+" » n'a pas pu être lu."}); };
+    r.readAsText(f);
+  });
+
+  /* ---------- screenshot reading (values are reviewed by the viewer before they are added) ---------- */
+  const CAP_PROMPT = 'This image is a screenshot of the round history of the crash game "Aviator" (multipliers such as 1.23x, 4.07x, 12.50x). '
+    + 'List every round multiplier that is clearly visible in the history strip or history list, in the order they appear on screen, reading left to right and top to bottom. '
+    + 'Ignore anything that is not a past round result: balances, bet amounts, cash-out buttons, the live multiplier of the round in progress, odds of other players. '
+    + 'Never guess a digit you cannot read: skip that value and count it in "unreadable". '
+    + 'In Aviator the history strip shows the most recent round first, so "order" is normally "newest_first"; use "oldest_first" only if the screen clearly shows otherwise. '
+    + 'Reply with only JSON in this exact shape: {"values":[1.23,4.07],"order":"newest_first","unreadable":0}. If no round multiplier is visible, reply {"values":[],"order":"unknown","unreadable":0}.';
+  const CAP_ERR = {
+    not_granted:"Vous n'avez pas autorisé la lecture des captures pour cette page. Utilisez la saisie, la liste ou le CSV.",
+    sampling_disabled:"La lecture des captures n'est pas disponible pour votre compte.",
+    images_unavailable:"Cet appareil ne permet pas d'envoyer des images à la page.",
+    image_rejected:"Image refusée : utilisez une capture PNG ou JPEG de moins de 20 Mo.",
+    rate_limited:"Trop de lectures d'un coup ou limite d'utilisation atteinte. Réessayez dans quelques minutes.",
+    session_expired:"Votre session a expiré : reconnectez-vous puis réessayez.",
+    invalid_json:"La réponse n'a pas pu être lue. Réessayez avec une capture plus nette, centrée sur l'historique.",
+    refused:"La capture n'a pas pu être analysée. Essayez une capture centrée sur l'historique des manches.",
+    empty_completion:"Aucune réponse obtenue. Réessayez avec une capture plus nette.",
+  };
+  let capCtl=null, capPending=null;
+  $("capFile").addEventListener("change", async e=>{
+    const f=e.target.files&&e.target.files[0]; e.target.value=""; if(!f || !state.sample) return;
+    if (active().demo){ msg("Choisissez ou créez un profil avant d'importer une capture.", true); return; }
+    capCtl = new AbortController();
+    $("capStatus").textContent="Lecture de la capture… (peut prendre jusqu'à une minute)";
+    $("capStatus").style.color="var(--muted)";
+    $("capStop").hidden=false; $("capReview").hidden=true;
+    try{
+      const out = await state.sample.json(CAP_PROMPT, {images:f, signal:capCtl.signal});
+      const r = parseCaptureResult(out);
+      if (r.error){ throw {code:"invalid_json"}; }
+      if (!r.ok.length){
+        $("capStatus").textContent="Aucun multiplicateur lisible sur cette capture."+(r.unreadable?" ("+r.unreadable+" valeur(s) illisible(s))":"")+" Prenez la capture sur l'historique des manches.";
+        $("capStatus").style.color="var(--red-soft)";
+        logEvent({source:SRC.c, added:0, ignored:r.bad.length+r.unreadable, dup:0, error:"Aucun multiplicateur lisible sur « "+f.name+" »."});
+        return;
+      }
+      const {fresh,dropped}=dedupeOverlap(active().rounds, r.ok);
+      capPending={bad:r.bad.length+r.unreadable, dup:dropped, name:f.name};
+      $("capText").value = fresh.map(v=>v.toFixed(2).replace(".",",")).join(" ");
+      $("capInfo").textContent = r.ok.length+" valeur(s) lue(s), de la plus ancienne à la plus récente"
+        +(dropped?" · "+dropped+" déjà présente(s) retirée(s)":"")
+        +(capPending.bad?" · "+capPending.bad+" illisible(s) ignorée(s)":"")
+        +(r.order==="unknown"?" · ordre non certain, vérifiez":"")
+        +". Comparez avec votre écran et corrigez si besoin avant d'ajouter.";
+      $("capReview").hidden=false;
+      $("capStatus").textContent="";
+    }catch(err){
+      const code = err && err.code || "upstream_error";
+      if (code==="cancelled"){ $("capStatus").textContent="Lecture arrêtée."; $("capStatus").style.color="var(--muted)"; return; }
+      const txt = CAP_ERR[code] || "La lecture a échoué (problème de connexion). Réessayez.";
+      $("capStatus").textContent=txt; $("capStatus").style.color="var(--red-soft)";
+      logEvent({source:SRC.c, added:0, ignored:0, dup:0, error:txt});
+      if (["not_granted","sampling_disabled","images_unavailable","not_declared","capability_disabled","capability_removed"].includes(code)){
+        $("capBox").hidden=true; $("capNote").hidden=false; $("capNote").textContent=txt;
+      }
+    }finally{ $("capStop").hidden=true; capCtl=null; }
+  });
+  $("capStop").onclick=()=>capCtl&&capCtl.abort();
+  $("capAdd").onclick=()=>{
+    const {ok,bad}=parseList($("capText").value);
+    if (!ok.length){ $("capInfo").textContent="La liste est vide ou illisible."; return; }
+    if (addRounds(ok, new Array(bad.length+(capPending?capPending.bad:0)).fill("?"), "c", {dup:capPending?capPending.dup:0})){
+      $("capReview").hidden=true; $("capText").value=""; capPending=null;
+    }
+  };
+  $("capCancel").onclick=()=>{ $("capReview").hidden=true; $("capText").value=""; capPending=null; msg("Import de la capture annulé.", false); };
+
+  $("undoBtn").onclick = ()=>{
+    const p=active(); if (p.demo || !p.rounds.length) return;
+    p.rounds.pop(); p.src.pop(); p.updatedAt=Date.now(); persist(state.activeId); msg("Dernière manche retirée.", false); render();
+    if (state.server) apiCall("POST","/api/rounds/undo",{profile:state.activeId}).then(()=>loadServer(true)).catch(e=>{ msg(serverFail(e,"Annulation"), true); loadServer(true); });
+  };
+  $("exportBtn").onclick = async ()=>{
+    const p=active(); if(!state.dl || p.demo) return;
+    const csv = "manche,multiplicateur,source\n" + p.rounds.map((v,i)=>(i+1)+","+v.toFixed(2)+","+(SRC[p.src[i]]||SRC.m)).join("\n");
+    try{ await state.dl.save({filename:(p.name||"profil").replace(/[^\w-]+/g,"_")+".csv", data:csv}); }catch(e){}
+  };
+  $("winSeg").addEventListener("click", e=>{
+    const b=e.target.closest("button"); if(!b) return;
+    state.win=+b.dataset.w;
+    [...$("winSeg").children].forEach(x=>x.setAttribute("aria-pressed", x===b));
+    render();
+  });
+  $("addProf").onclick = async ()=>{
+    const name=$("newProf").value.trim(); if(!name) { $("newProf").focus(); return; }
+    if (state.server){
+      if (!state.server.ok){ msg("Connectez-vous d'abord au serveur avec votre clé d'accès.", true); return; }
+      try{ const r=await apiCall("POST","/api/profiles",{name}); $("newProf").value=""; state.activeId=r.id; stop(); await loadServer(true); }
+      catch(e){ msg(serverFail(e,"Création du profil"), true); }
+      return;
+    }
+    const id = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+    state.profiles[id] = {name, rounds:[], src:[], anomalies:0, createdAt:Date.now(), updatedAt:Date.now()};
+    state.activeId=id; $("newProf").value=""; persist(id); stop(); render();
+  };
+  $("newProf").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); $("addProf").click(); } });
+
+  function start(){
+    if (state.running) return;
+    const p=active();
+    state.running=true; state.sessionStart=p.rounds.length; state.sessionStartAt=Date.now();
+    if (p.demo) state.demoTimer=setInterval(()=>{ demo.rounds.push(demoRound()); demo.src.push("d"); if(demo.rounds.length>MAXR){ demo.rounds.shift(); demo.src.shift(); } demo.updatedAt=Date.now(); render(); }, 4000);
+    else $("oneVal").focus();
+    render();
+  }
+  function stop(){
+    state.running=false; clearInterval(state.demoTimer); state.demoTimer=null; render();
+  }
+  $("startBtn").onclick=start; $("stopBtn").onclick=stop;
+
+  /* ---------- render ---------- */
+  function render(){
+    const p=active(), a=p.rounds, n=a.length;
+    const isDemo=!!p.demo;
+    $("demoBanner").hidden=!isDemo;
+    const sp=$("srcPill");
+    sp.className="pill "+(isDemo?"demo":"off");
+    $("srcTxt").textContent = isDemo ? "Démo · données fictives" : "Direct : indisponible (aucune API Bwin)";
+    const sc=srcCounts(p.src||[]);
+    const mixP=$("mixPill");
+    mixP.className="pill "+(isDemo?"demo":"manual");
+    mixP.textContent = isDemo ? "Données : 100 % fictives"
+      : (n ? "Données : " + [sc.m?sc.m+" saisie(s)":"", sc.i?sc.i+" CSV":"", sc.c?sc.c+" capture(s)":"", sc.t?sc.t+" Telegram":""].filter(Boolean).join(" · ") + " · 0 en direct" : "Données : aucune");
+    const q=quality(n);
+    const qp=$("qualPill"); qp.className="pill "+q.lvl; qp.textContent="Qualité : "+q.txt+" ("+n+" manches"+(p.anomalies?", "+p.anomalies+" anomalie"+(p.anomalies>1?"s":""):"")+")";
+    $("updPill").textContent = "Mise à jour : " + (p.updatedAt ? new Date(p.updatedAt).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",second:"2-digit"}) : "—");
+    $("startBtn").disabled=state.running; $("stopBtn").disabled=!state.running;
+    $("lastVal").textContent = n ? fmtX(a[n-1]) : "—";
+    $("lastVal").style.color = n ? `var(--c${catOf(a[n-1]).slice(1)})` : "var(--fg)";
+    if (n && catOf(a[n-1])==="k1") $("lastVal").style.color="var(--fg)";
+    $("profName").textContent = p.name;
+    $("lastSrc").textContent = n ? "Source : " + (SRC[p.src[n-1]]||SRC.m) : "";
+    if (state.running){
+      const sn=n-state.sessionStart, ss=stats(a.slice(state.sessionStart));
+      $("sessInfo").textContent = "Session en cours · "+sn+" manche(s)"+(sn? " · ≥2× : "+fmtP(ss.ge2/sn):"");
+    } else $("sessInfo").textContent = isDemo ? "Analyse arrêtée · appuyez sur Démarrer pour simuler" : "Analyse arrêtée";
+    $("exportBtn").hidden = !(state.dl && !isDemo && n);
+    $("undoBtn").disabled = isDemo || !n;
+
+    const w=a.slice(-state.win), ws=(p.src||[]).slice(-state.win);
+    $("chips").innerHTML = w.map((v,i)=>[v,ws[i]||"m"]).reverse().map(([v,s])=>`<span class="chip ${catOf(v)} s-${s}" title="${fmtX(v)} · ${SRC[s]}">${fmtX(v)}</span>`).join("") || '<span class="note">Aucune manche pour ce profil. Ajoutez les multiplicateurs que vous voyez dans l\'historique du jeu.</span>';
+    $("winNote").textContent = n<state.win && n ? `Seulement ${n} manche(s) disponible(s) pour la fenêtre de ${state.win}.` : (n ? "Le plus récent en premier." : "");
+    drawChart(w);
+
+    const s=stats(w);
+    $("cats").innerHTML = CATS.map(c=>{
+      const k=s.counts[c.key], [lo,hi]=wilson(k,s.n);
+      return `<div class="cat ${c.key}b"><span class="lbl">${c.label}</span><span class="pct">${s.n?fmtP(k/s.n):"—"}</span><span class="sub">${k} manche(s)${s.n?` · [${fmtP(lo)} ; ${fmtP(hi)}]`:""}</span><span class="sub">Théorie : ${fmtP(theoCat(c))}</span></div>`;
+    }).join("");
+    $("kv").innerHTML = [
+      ["Manches", s.n||"0"], ["Moyenne", fmtX(s.mean)], ["Médiane", fmtX(s.median)],
+      ["Minimum", fmtX(s.min)], ["Maximum", fmtX(s.max)], ["Série actuelle < 2×", s.n? s.streak : "—"],
+    ].map(([k,v])=>`<div><span>${k}</span><b>${v}</b></div>`).join("");
+
+    const targets=[1.2,1.5,2,3,5,10];
+    $("nextTbl").innerHTML = targets.map(m=>{
+      const th=theoGE(m), ob=geRate(a,m), ev=th*m-1;
+      return `<tr><td>${fmtX(m)}</td><td>${fmtP(th)}</td><td>${n?fmtP(ob):"—"}</td><td class="neg">${(ev*100).toFixed(1).replace(".",",")} %</td></tr>`;
+    }).join("");
+
+    const d=dependence(a);
+    $("depKv").innerHTML = [
+      ["Après une manche < 2×", d.nl? fmtP(d.kl/d.nl)+" ≥ 2×" : "—", d.nl],
+      ["Après une manche ≥ 2×", d.nh? fmtP(d.kh/d.nh)+" ≥ 2×" : "—", d.nh],
+      ["Théorie (toujours)", fmtP(theoGE(2))+" ≥ 2×", null],
+    ].map(([k,v,c])=>`<div><span>${k}</span><b>${v}</b>${c!=null?`<span>${c} cas</span>`:""}</div>`).join("");
+    $("depNote").innerHTML = s.streak>=3
+      ? `<b>Série actuelle : ${s.streak} manches sous 2×.</b> Cela ne rend pas un gros multiplicateur plus probable. La chance d'atteindre 2× à la prochaine manche reste d'environ ${fmtP(theoGE(2))}.`
+      : "Si les deux premiers chiffres sont proches l'un de l'autre et de la théorie, les manches passées n'influencent pas la suivante. Avec peu de manches, les écarts peuvent être grands par hasard.";
+
+    $("winTbl").innerHTML = [10,50,100,500].map(k=>{
+      const x=a.slice(-k), st=stats(x);
+      return `<tr><td>${k} dernières</td><td>${st.n}</td><td>${fmtX(st.median)}</td><td>${st.n?fmtP(st.ge2/st.n):"—"}</td><td>${st.n?fmtP(geRate(x,5)):"—"}</td></tr>`;
+    }).join("") + `<tr><td>Théorie</td><td>—</td><td>${fmtX(RTP*2)}</td><td>${fmtP(theoGE(2))}</td><td>${fmtP(theoGE(5))}</td></tr>`;
+
+    renderProfiles();
+  }
+
+  function renderJournal(){
+    const el=$("journal");
+    if (!journal.length){ el.innerHTML='<p class="note">Aucune récupération pour l\'instant. Chaque import (liste, CSV, capture) et chaque erreur apparaîtra ici.</p>'; return; }
+    el.innerHTML = journal.map(j=>{
+      const t=new Date(j.at).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+      return j.error
+        ? `<div class="jrow err-row"><span class="jt">${t}</span><span><b>Échec · ${esc(j.source)}</b> — ${esc(j.error)}</span></div>`
+        : j.note ? `<div class="jrow"><span class="jt">${t}</span><span><b>${esc(j.source)}</b> — ${esc(j.note)}</span></div>`
+        : `<div class="jrow"><span class="jt">${t}</span><span><b>${j.added} ajoutée(s) · ${esc(j.source)}</b>${j.ignored?" · "+j.ignored+" ignorée(s)":""}${j.dup?" · "+j.dup+" doublon(s) retiré(s)":""}</span></div>`;
+    }).join("");
+  }
+
+  function renderProfiles(){
+    const ids=Object.keys(state.profiles).sort((x,y)=>(state.profiles[y].updatedAt||0)-(state.profiles[x].updatedAt||0));
+    const item=(id,p)=>{
+      const st=stats(p.rounds);
+      const when = p.updatedAt ? new Date(p.updatedAt).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "—";
+      const status = p.demo ? "Démo" : "Direct indisponible";
+      return `<div class="row" style="flex-wrap:nowrap;gap:6px"><button class="prof" data-id="${id}" aria-current="${state.activeId===id}">
+        <span class="n">${esc(p.name)}</span><span class="st">${status}</span>
+        <span class="s">${st.n} manches · ≥2× : ${st.n?fmtP(st.ge2/st.n):"—"} · médiane ${fmtX(st.median)} · dernière synchro ${when}</span>
+      </button>${p.demo?"":`<button class="ghost" data-del="${id}" aria-label="Supprimer ${esc(p.name)}">✕</button>`}</div>`;
+    };
+    $("profiles").innerHTML = item("demo",demo) + ids.map(id=>item(id,state.profiles[id])).join("");
+    const cb=$("confirmBox");
+    if (state.confirmDel && state.profiles[state.confirmDel]){
+      cb.innerHTML=`<div class="confirm">Supprimer « ${esc(state.profiles[state.confirmDel].name)} » et ses ${state.profiles[state.confirmDel].rounds.length} manches ? <button class="primary" id="cYes">Supprimer</button><button id="cNo">Garder</button></div>`;
+      $("cYes").onclick=()=>{ const id=state.confirmDel;
+        if (state.server) apiCall("DELETE","/api/profiles/"+encodeURIComponent(id)).then(()=>loadServer(true)).catch(e=>{ msg(serverFail(e,"Suppression du profil"), true); loadServer(true); });
+        delete state.profiles[id]; state.confirmDel=null; if(state.activeId===id){state.activeId="demo"; stop();} persist(id); render(); };
+      $("cNo").onclick=()=>{ state.confirmDel=null; render(); };
+    } else cb.innerHTML="";
+  }
+  $("profiles").addEventListener("click", e=>{
+    const del=e.target.closest("[data-del]");
+    if (del){ state.confirmDel=del.dataset.del; renderProfiles(); return; }
+    const b=e.target.closest(".prof"); if(!b) return;
+    if (state.activeId!==b.dataset.id){ stop(); state.activeId=b.dataset.id; render(); }
+  });
+
+  /* ---------- chart ---------- */
+  function drawChart(w){
+    const cv=$("chart"), box=cv.parentElement;
+    const dpr=window.devicePixelRatio||1, W=box.clientWidth, H=box.clientHeight;
+    cv.width=W*dpr; cv.height=H*dpr;
+    const g=cv.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
+    const css=getComputedStyle(document.documentElement);
+    const col=k=>css.getPropertyValue("--"+k).trim();
+    const padL=38,padR=8,padT=8,padB=18, iw=W-padL-padR, ih=H-padT-padB;
+    const maxV=Math.max(10, ...w);
+    const top=Math.log10(Math.min(maxV,10000));
+    const y=v=>padT+ih-(Math.log10(Math.max(1,v))/top)*ih;
+    g.font="11px "+col("f-mono"); g.textAlign="right"; g.textBaseline="middle";
+    [1,1.5,2,5,10,100,1000].filter(t=>Math.log10(t)<=top+1e-9).forEach(t=>{
+      g.strokeStyle=t===2?col("red"):col("line"); g.lineWidth=t===2?1.2:1;
+      g.setLineDash(t===2?[4,4]:[]);
+      g.beginPath(); g.moveTo(padL,y(t)+.5); g.lineTo(W-padR,y(t)+.5); g.stroke();
+      g.fillStyle=t===2?col("red-soft"):col("muted"); g.fillText((t+"").replace(".",",")+"×", padL-5, y(t));
+    });
+    g.setLineDash([]);
+    if (!w.length){ g.fillStyle=col("muted"); g.textAlign="center"; g.fillText("Aucune donnée", padL+iw/2, padT+ih/2); return; }
+    const bw=iw/w.length, gap=bw>6?1.5:0.5;
+    w.forEach((v,i)=>{
+      const k=catOf(v).slice(1);
+      g.fillStyle=col("c"+k);
+      const yy=y(Math.min(v,10000));
+      g.fillRect(padL+i*bw+gap/2, yy, Math.max(1,bw-gap), padT+ih-yy);
+    });
+    g.fillStyle=col("muted"); g.textAlign="left"; g.textBaseline="alphabetic";
+    g.fillText("ancien", padL, H-3); g.textAlign="right"; g.fillText("récent", W-padR, H-3);
+  }
+  window.addEventListener("resize", ()=>drawChart(active().rounds.slice(-state.win)));
+
+  /* ---------- server + Telegram panel ---------- */
+  let tgBusy=false, tgMsg="", tgMsgBad=false, tgLink=null;
+  function tgStatus(){
+    const t=state.tg||{};
+    if (!state.server) return {cls:"off", txt:"Indisponible ici"};
+    if (!state.server.ok) return {cls:"off", txt:"Serveur non connecté"};
+    if (!t.tokenSet) return {cls:"off", txt:"Bot non configuré"};
+    if (!t.linked) return t.pending ? {cls:"demo", txt:"En attente de Démarrer"} : {cls:"off", txt:"Non connecté"};
+    if (t.lastTest && t.lastTest.ok) return {cls:"ok", txt:"Connecté · testé à "+new Date(t.lastTest.at).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})};
+    if (t.lastTest && !t.lastTest.ok) return {cls:"off", txt:"Échec du dernier test"};
+    return {cls:"manual", txt:"Relié · pas encore testé"};
+  }
+  function renderServer(){
+    const kp=$("keyPanel"), body=$("tgBody"), pill=$("tgPill"), sp=$("srvPill");
+    const st=tgStatus(); pill.className="pill "+st.cls; pill.textContent="Telegram : "+st.txt;
+    if (!state.server){
+      kp.hidden=true; sp.hidden=true;
+      body.innerHTML = '<p class="note">Telegram fonctionne sur la <b>version hébergée</b> de votre site (votre serveur Cloudflare gratuit). Ici, la page ne peut pas joindre Internet, donc elle ne peut pas parler à Telegram.</p>';
+      return;
+    }
+    sp.hidden=false;
+    sp.className="pill "+(state.server.ok?"ok":"off");
+    sp.textContent = state.server.ok ? "Serveur : connecté" : (state.server.key ? "Serveur : erreur" : "Serveur : clé requise");
+    kp.hidden = state.server.ok;
+    if (state.server.ok) $("keyErr").textContent = "";
+    if (!state.server.ok){ body.innerHTML='<p class="note">Entrez d\'abord votre clé d\'accès au serveur.</p>'; return; }
+    const t=state.tg||{}, profs=Object.keys(state.profiles);
+    let h="";
+    if (!t.tokenSet) h+='<p class="note"><b>Le jeton du bot manque.</b> Ajoutez le secret BOT_TOKEN dans Cloudflare (Workers → analyseur-aviator → Paramètres → Variables et secrets), puis rechargez la page.</p>';
+    else if (!t.linked){
+      h+='<p class="note">Reliez votre bot pour recevoir vos statistiques et une notification à chaque nouvelle manche ajoutée.</p>';
+      h+='<div class="row"><button class="primary" id="tgConnect"'+(tgBusy?" disabled":"")+'>Connecter Telegram</button></div>';
+      const link = tgLink || t.link;
+      if (link) h+='<p class="note">Étape suivante : <a class="tglink" href="'+esc(link)+'" target="_blank" rel="noopener">ouvrir Telegram et appuyer sur Démarrer</a>. Le lien est valable 15 minutes. Cette page se met à jour toute seule.</p>';
+    } else {
+      h+='<p class="note">Bot <b>@'+esc(t.botUsername||"")+'</b> relié à <b>'+esc(t.chatName||"")+'</b>.</p>';
+      h+='<div class="row"><button class="primary" id="tgTest"'+(tgBusy?" disabled":"")+'>Tester la connexion</button><button id="tgOff" class="ghost"'+(tgBusy?" disabled":"")+'>Déconnecter</button></div>';
+      h+='<div class="row"><label for="tgProf">Profil suivi par le bot</label><select id="tgProf">'+(profs.length?profs.map(id=>'<option value="'+id+'"'+((t.tgProfile||profs[0])===id?" selected":"")+'>'+esc(state.profiles[id].name)+'</option>').join(""):'<option value="">Aucun profil</option>')+'</select></div>';
+      if (t.lastTest && !t.lastTest.ok) h+='<p class="err">'+esc(t.lastTest.error||"")+'</p>';
+      if (t.lastTest && t.lastTest.warning) h+='<p class="err">'+esc(t.lastTest.warning)+'</p>';
+    }
+    if (tgMsg) h+='<p class="'+(tgMsgBad?"err":"note")+'" role="status">'+esc(tgMsg)+'</p>';
+    body.innerHTML=h;
+    const on=(id,fn)=>{ const el=$(id); if(el) el.onclick=fn; };
+    on("tgConnect", async ()=>{
+      tgBusy=true; tgMsg="Connexion au bot…"; tgMsgBad=false; renderServer();
+      try{ const r=await apiCall("POST","/api/telegram/connect"); tgLink=r.link; tgMsg="Bot @"+r.botUsername+" trouvé. Ouvrez le lien ci-dessus."; tgMsgBad=false; startFastPoll(); }
+      catch(e){ tgMsg=serverFail(e,"Connexion Telegram"); tgMsgBad=true; }
+      tgBusy=false; await loadServer(true);
+    });
+    on("tgTest", async ()=>{
+      tgBusy=true; tgMsg="Envoi d'un message de test…"; tgMsgBad=false; renderServer();
+      try{ await apiCall("POST","/api/telegram/test"); tgMsg="Test réussi : un message vient d'arriver dans Telegram."; tgMsgBad=false; logEvent({source:"Telegram", added:0, ignored:0, dup:0, error:null, note:"test réussi"}); }
+      catch(e){ tgMsg=serverFail(e,"Test Telegram"); tgMsgBad=true; }
+      tgBusy=false; await loadServer(true);
+    });
+    on("tgOff", async ()=>{
+      tgBusy=true; renderServer();
+      try{ await apiCall("POST","/api/telegram/disconnect"); tgLink=null; tgMsg="Bot déconnecté."; tgMsgBad=false; }
+      catch(e){ tgMsg=serverFail(e,"Déconnexion"); tgMsgBad=true; }
+      tgBusy=false; await loadServer(true);
+    });
+    const sel=$("tgProf");
+    if (sel) sel.onchange=async ()=>{ try{ await apiCall("POST","/api/telegram/profile",{profile:sel.value}); tgMsg="Le bot suit maintenant « "+state.profiles[sel.value].name+" »."; tgMsgBad=false; }catch(e){ tgMsg=serverFail(e,"Choix du profil"); tgMsgBad=true; } loadServer(true); };
+  }
+  let fastPoll=null;
+  function startFastPoll(){
+    clearInterval(fastPoll); const until=Date.now()+15*60*1000;
+    fastPoll=setInterval(async ()=>{ await loadServer(true); if ((state.tg&&state.tg.linked) || Date.now()>until){ clearInterval(fastPoll); if(state.tg&&state.tg.linked){ tgLink=null; tgMsg="Bot relié. Appuyez sur « Tester la connexion »."; tgMsgBad=false; renderServer(); } } }, 3000);
+  }
+  $("keyBtn").onclick = async ()=>{
+    const k=$("keyIn").value.trim();
+    if (k.length<12){ $("keyErr").textContent="La clé fait au moins 12 caractères."; return; }
+    state.server.key=k; $("keyErr").textContent="Vérification…";
+    await loadServer(true);
+    if (state.server.ok){ storeKey(k, $("keyRemember").checked); $("keyIn").value=""; $("keyErr").textContent=""; }
+    else { $("keyErr").textContent = state.server.err || "Clé refusée."; state.server.key=""; }
+    renderServer();
+  };
+  $("keyIn").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); $("keyBtn").click(); } });
+
+  render();
+  renderJournal();
+  initStore();
+  initCapture();
+})();
+</script>

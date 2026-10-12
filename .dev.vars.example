@@ -1,0 +1,4 @@
+# Jeton du bot donné par @BotFather dans Telegram (ex. 123456789:AA...)
+BOT_TOKEN=
+# Mot de passe de votre site, inventé par vous, 12 caractères minimum. Ce n'est PAS votre mot de passe Bwin.
+ADMIN_KEY=

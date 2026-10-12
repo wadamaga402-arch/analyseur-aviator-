@@ -1,0 +1,12 @@
+import test from "node:test"; import assert from "node:assert/strict";
+import * as E from "../src/engine.js";
+test("lecture des nombres (virgule, point, x)", ()=>{ assert.equal(E.toNum("1,87"),1.87); assert.equal(E.toNum("2.5x"),2.5); assert.ok(Number.isNaN(E.toNum("abc"))); });
+test("liste collée", ()=>{ const r=E.parseList("1,24 3.10;0,5 abc 7,85x\n1.00"); assert.deepEqual(r.ok,[1.24,3.1,7.85,1]); assert.deepEqual(r.bad,["0,5","abc"]); });
+test("CSV avec colonne nommée", ()=>{ const r=E.parseCSV("id;heure;multiplicateur\n1;10:00;1,52\n2;10:01;3,4\n3;x;x"); assert.deepEqual(r.ok,[1.52,3.4]); assert.equal(r.bad.length,1); });
+test("théorie : somme des tranches = 100 %", ()=>{ assert.ok(Math.abs(E.CATS.reduce((a,c)=>a+E.theoCat(c),0)-1)<1e-9); assert.ok(Math.abs(E.theoGE(2)-0.485)<1e-9); });
+test("statistiques et série", ()=>{ const s=E.stats([2.5,1.2,1.1,1.3]); assert.equal(s.streak,3); assert.equal(s.ge2,1); assert.equal(E.median([3,1,2]),2); });
+test("intervalle de Wilson", ()=>{ const [l,h]=E.wilson(50,100); assert.ok(l>0.40&&l<0.41&&h>0.59&&h<0.60); });
+test("capture : plus récent en premier inversé", ()=>{ assert.deepEqual(E.parseCaptureResult({values:[5.1,"1,20"],order:"newest_first"}).ok,[1.2,5.1]); assert.equal(E.parseCaptureResult(null).error,"format"); });
+test("doublons de chevauchement", ()=>{ assert.deepEqual(E.dedupeOverlap([1,2,3.5,4,5],[3.5,4,5,6]).fresh,[6]); assert.equal(E.dedupeOverlap([1,2,5],[2,5,6]).dropped,0); });
+test("sources : anciens profils et Telegram", ()=>{ assert.deepEqual(E.normSrc([1,2],undefined),["m","m"]); assert.deepEqual(E.normSrc([1,2],["t","c"]),["t","c"]); assert.equal(E.SRC.t,"saisie Telegram"); });
+test("démo suit la distribution théorique", ()=>{ const a=Array.from({length:100000},E.demoRound); assert.ok(Math.abs(E.geRate(a,2)-0.485)<0.008); assert.ok(a.every(v=>v>=1)); });
