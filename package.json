@@ -4,8 +4,8 @@
   "type": "module",
   "description": "Analyseur statistique Aviator (données saisies ou importées) avec bot Telegram privé. Aucune connexion à Bwin, aucune prédiction, aucun pari.",
   "scripts": {
-    "build": "node scripts/build-site.mjs && node scripts/sync-engine.mjs",
-    "test": "node scripts/sync-engine.mjs --check && node --test test/engine.test.mjs && node test/e2e.mjs && node test/telegram.mjs",
+    "build": "node scripts/build-site.mjs && node scripts/sync-engine.mjs && node scripts/build-serverless.mjs",
+    "test": "node scripts/sync-engine.mjs --check && node --test test/engine.test.mjs && node --import ./test/mocks/register.mjs --test test/serverless.test.mjs && node test/e2e.mjs && node test/telegram.mjs",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy"
   },

@@ -31,6 +31,12 @@ Indépendant : non affilié à Bwin ni à Spribe.
 - Sur le serveur, le nombre de valeurs illisibles (Data Integrity) n'est compté que pendant la session.
 - La lecture de captures d'écran ne fonctionne que dans la version Claude du site.
 
+## Option la plus simple : Telegram Serverless (dans BotFather, sans GitHub ni Cloudflare)
+`npm run build` génère `telegram-serverless/tgcloud/` : `schema.js` (une table clé → valeur), `lib/starbot.js` (moteur + logique du bot + stockage, un seul fichier) et `handlers/message.js`.
+Dans Telegram : @BotFather → votre bot → Serverless → coller `schema.js` et appliquer la migration, créer le module `lib/starbot`, puis le handler `message`. Le premier `/start` en privé verrouille le bot sur votre compte. `/test` vérifie le moteur et la base.
+Avec la CLI officielle : `npx tgcloud login`, `npx tgcloud push`, `npx tgcloud migrate`.
+Tests : `node --import ./test/mocks/register.mjs --test test/serverless.test.mjs` (émulateur du SDK écrit d'après la documentation officielle).
+
 ## Telegram en solution de secours (sans le site)
 Le bot tourne sur le serveur Cloudflare, pas dans la page web : il marche même si le site est fermé ou cassé, avec le même moteur (`src/engine.js`) et la même base (Durable Object).
 
