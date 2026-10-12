@@ -31,6 +31,24 @@ Indépendant : non affilié à Bwin ni à Spribe.
 - Sur le serveur, le nombre de valeurs illisibles (Data Integrity) n'est compté que pendant la session.
 - La lecture de captures d'écran ne fonctionne que dans la version Claude du site.
 
+## Telegram en solution de secours (sans le site)
+Le bot tourne sur le serveur Cloudflare, pas dans la page web : il marche même si le site est fermé ou cassé, avec le même moteur (`src/engine.js`) et la même base (Durable Object).
+
+| Commande | Effet |
+| --- | --- |
+| `/start` | relie le bot et affiche le menu |
+| `/aide` | liste des commandes |
+| `/ajouter 1,52 3,10 1,20` | enregistre des manches réelles (300 max par message), confirme, recalcule et enregistre l'analyse |
+| `/historique [n]` | n dernières manches (20 par défaut, 50 max) |
+| `/stats` | nombre de manches, moyenne, médiane, répartition, qualité des données, signal |
+| `/signal` | STAR BOT SIGNAL, validation hors échantillon, estimations vs résultats, limites |
+| `/effacer` puis `/effacer oui` | efface l'historique du profil (confirmation valable 2 minutes) |
+| `/test` | 8 vérifications du moteur et du stockage ; si la réponse arrive, Telegram fonctionne |
+
+Sécurité : seul le compte `ALLOWED_USER_ID` est accepté (un inconnu reçoit son propre identifiant et rien d'autre), conversations privées uniquement, webhook protégé par un secret dérivé, jeton uniquement dans les secrets Cloudflare, aucune fonction de mise.
+
+Page d'installation de secours : `https://<votre-worker>.workers.dev/setup` (installer le webhook et tester sans le tableau de bord).
+
 ## Lancer en local
 ```
 npm install
@@ -48,11 +66,12 @@ npx wrangler dev                 # site sur http://localhost:8787
 | --- | --- |
 | `BOT_TOKEN` | Jeton donné par @BotFather |
 | `ADMIN_KEY` | Clé d'accès au site, inventée par vous, 12 caractères minimum |
+| `ALLOWED_USER_ID` | Votre identifiant Telegram (le bot vous le donne) : seul ce compte peut utiliser le bot |
 
 ## Développement
 ```
 npm install
-npm test                     # 24 tests du moteur + 28 tests de bout en bout (serveur Cloudflare local + faux Telegram)
+npm test                     # 24 tests du moteur + 28 tests site/serveur + 28 tests du bot seul (serveur Cloudflare local + faux Telegram, redémarrage inclus)
 PW_PATH=<playwright> node test/dashboard.mjs   # 81 tests du tableau de bord (vide, boutons, export, effacement, iPhone 320-430 px, graphiques = données)
 sh scripts/run-ui-test.sh    # site + serveur + Telegram dans un navigateur
 ```

@@ -88,10 +88,10 @@ await step("échec d'envoi détecté et expliqué", async () => {
   assert.equal(r.status, 409); assert.match(r.data.error, /bloqué/);
   assert.equal((await api("GET", "/api/state")).data.telegram.lastTest.ok, false);
 });
-await step("/stats", async () => { await tgUpdate("/stats"); await settle(); const t = lastSent().payload.text; assert.match(t, /Statistiques · Bwin soir/); assert.match(t, /3 manches/); assert.match(t, /pas une prédiction/); });
+await step("/stats", async () => { await tgUpdate("/stats"); await settle(); const t = lastSent().payload.text; assert.match(t, /Statistiques · Bwin soir/); assert.match(t, /3 manche\(s\) analysée\(s\)/); assert.match(t, /pas une prédiction/); });
 await step("/ajouter ajoute des manches source Telegram", async () => {
   await tgUpdate("/ajouter 2,10 abc 7.85x"); await settle();
-  assert.match(lastSent().payload.text, /2 manche\(s\) ajoutée\(s\).*1 ignorée/s);
+  assert.match(lastSent().payload.text, /2 manche\(s\) enregistrée\(s\).*1 ignorée/s);
   const p = (await api("GET", "/api/state")).data.profiles[pid]; assert.deepEqual(p.rounds, [1.52, 3.4, 1.02, 2.1, 7.85]); assert.equal(p.src, "iiitt");
 });
 await step("/ajouter sans valeur : message d'aide", async () => { await tgUpdate("/ajouter"); await settle(); assert.match(lastSent().payload.text, /Aucune valeur lisible/); });
@@ -107,7 +107,8 @@ await step("doublons retirés côté serveur", async () => { const r = await api
 await step("annuler la dernière manche", async () => { await api("POST", "/api/rounds/undo", { profile: pid }); const p = (await api("GET", "/api/state")).data.profiles[pid]; assert.equal(p.rounds.at(-1), 4.44); });
 await step("historique des analyses enregistré et relu", async () => {
   const r = await api("POST", "/api/log", { profile: pid, entry: { at: 1, n: 3, code: "insufficient", title: "DONNÉES INSUFFISANTES", p2: null, why: "analyse" } });
-  assert.equal(r.status, 200); const st = (await api("GET", "/api/state")).data.profiles[pid]; assert.equal(st.log.length, 1); assert.equal(st.log[0].n, 3);
+  assert.equal(r.status, 200); const st = (await api("GET", "/api/state")).data.profiles[pid];
+  assert.ok(st.log.some(e => e.why === "Telegram"), "l'ajout Telegram doit aussi être enregistré"); const last = st.log.at(-1); assert.equal(last.n, 3); assert.equal(last.why, "analyse");
 });
 await step("analyse invalide refusée (400)", async () => { const r = await api("POST", "/api/log", { profile: pid, entry: { n: "x" } }); assert.equal(r.status, 400); });
 await step("effacer les données d'un profil (manches + analyses)", async () => {

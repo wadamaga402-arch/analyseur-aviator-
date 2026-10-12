@@ -68,58 +68,87 @@ async function tg(env, method, payload) {
 const send = (env, chatId, text) => tg(env, "sendMessage", { chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true });
 
 /* ---------------- statistics text (shared engine) ---------------- */
+function signalOf(rounds) {
+  const v = rounds.length >= E.VAL.minRounds ? E.validate(rounds) : { status: "insufficient" };
+  return { v, sig: E.signalState(rounds, { validation: v }) };
+}
 function statsText(name, rounds) {
   const n = rounds.length;
-  if (!n) return `<b>${esc(name)}</b>\nAucune manche pour l'instant. Ajoutez-en avec /ajouter 1,52 3,10 …`;
-  const w = rounds.slice(-100), s = E.stats(w), q = E.quality(n);
-  const lines = E.CATS.map(c => {
-    const k = s.counts[c.key];
-    return `${c.label} : ${fmtP(k / s.n)} (théorie ${fmtP(E.theoCat(c))})`;
-  });
+  if (!n) return `<b>${esc(name)}</b>\nDONNÉES INSUFFISANTES : aucune manche enregistrée.\nAjoutez vos manches réelles avec /ajouter 1,52 3,10 …`;
+  const w = rounds.slice(-100), s = E.stats(w), all = E.stats(rounds), dq = E.dataQuality(rounds, 0);
+  const lines = E.CATS.map(c => `${c.label} : ${fmtP(s.counts[c.key] / s.n)} (théorie ${fmtP(E.theoCat(c))})`);
+  const flags = dq.items.filter(x => !x.ok).map(x => `⚠️ ${x.label} : ${x.detail}`);
   return [
     `<b>Statistiques · ${esc(name)}</b>`,
-    `${n} manches enregistrées · qualité ${q.txt}`,
-    `Sur les ${s.n} dernières : moyenne ${fmtX(s.mean)}, médiane ${fmtX(s.median)}, max ${fmtX(s.max)}`,
-    `≥ 2× : ${fmtP(s.ge2 / s.n)} observé · ${fmtP(E.theoGE(2))} en théorie`,
-    "", ...lines, "",
-    `Série actuelle sous 2× : ${s.streak}. Elle ne change pas la chance de la prochaine manche.`,
-    `<i>Statistiques du passé, pas une prédiction.</i>`,
+    `${n} manche(s) analysée(s) · qualité des données : ${dq.level}`,
+    `Toutes : moyenne ${fmtX(all.mean)}, médiane ${fmtX(all.median)}, max ${fmtX(all.max)}`,
+    `${s.n} dernières : ≥ 2× ${fmtP(s.ge2 / s.n)} (théorie ${fmtP(E.theoGE(2))})`,
+    "", "<b>Répartition (" + s.n + " dernières)</b>", ...lines,
+    ...(flags.length ? ["", ...flags] : []),
+    "", `Signal : <b>${esc(signalOf(rounds).sig.title)}</b> · /signal pour le détail`,
+    n < 30 ? "Moins de 30 manches : ces pourcentages varient beaucoup par simple hasard." : `Série actuelle sous 2× : ${s.streak}. Elle ne change pas la chance de la prochaine manche.`,
+    `<i>Observations du passé, pas une prédiction.</i>`,
   ].join("\n");
 }
 function signalText(name, rounds) {
-  const n = rounds.length, q = E.quality(n);
+  const n = rounds.length, dq = E.dataQuality(rounds, 0);
   const rows = [1.5, 2, 3, 5, 10].map(m => `≥ ${fmtX(m)} : ${fmtP(E.theoGE(m))} (théorie) · ${n ? fmtP(E.geRate(rounds, m)) : "—"} (observé)`);
-  const v = n >= E.VAL.minRounds ? E.validate(rounds) : null;
-  const sig = E.signalState(rounds, { validation: v || { status: "insufficient" } });
+  const { v, sig } = signalOf(rounds);
+  const wf = E.walkForward(rounds);
   return [
-    `<b>${esc(sig.title)}</b>`,
+    `★ <b>STAR BOT SIGNAL : ${esc(sig.title)}</b>`,
     esc(sig.why),
     "",
-    `<b>Signal statistique · ${esc(name)}</b>`,
-    `Données : ${n} manches · qualité ${q.txt}`,
-    v && v.status === "done" ? `Validation : test sur ${v.testN} manches · retour ${fmtP(v.test.roi)} contre ${fmtP(v.baseline.roi)} pour la référence` : `Validation : ${E.VAL.minRounds} manches nécessaires`,
-    "", "Chance d'atteindre au moins :", ...rows, "",
-    "Retour moyen : environ −3 % de la mise, quel que soit le niveau d'encaissement.",
-    "Limite : chaque manche est indépendante. Aucun outil ne connaît la prochaine. Ce n'est pas un conseil de mise.",
+    `Données : ${n} manche(s) réelle(s) · qualité ${dq.level} · 0 en direct`,
+    v.status === "done" ? `Validation hors échantillon : test sur ${v.testN} manches · meilleure règle ${fmtP(v.test.roi)} par mise contre ${fmtP(v.baseline.roi)} pour la référence` : `Validation hors échantillon : ${E.VAL.minRounds} manches nécessaires`,
+    wf.status === "done" ? `Estimations vs résultats : ${wf.better ? "meilleures que la théorie (à confirmer)" : "aucune amélioration sur la théorie"} (${wf.scored} manches)` : `Estimations vs résultats : ${wf.need} manches nécessaires`,
+    "", "<b>Observations historiques</b> — chance d'atteindre au moins :", ...rows, "",
+    "Retour moyen théorique : −3 % de la mise, quel que soit l'encaissement.",
+    "<i>Limite : chaque manche est indépendante. Aucun outil ne connaît la prochaine. Ce n'est pas un conseil de mise.</i>",
   ].join("\n");
 }
 function historyText(name, rounds, src, k) {
-  if (!rounds.length) return "Aucune manche enregistrée.";
+  if (!rounds.length) return "Aucune manche enregistrée. Ajoutez-en avec /ajouter 1,52 3,10 …";
   const start = Math.max(0, rounds.length - k);
   const items = rounds.slice(start).map((v, i) => fmtX(v) + (src[start + i] === "t" ? "ᵗ" : src[start + i] === "i" ? "ᶜ" : src[start + i] === "c" ? "ᵏ" : "")).reverse();
-  return `<b>${Math.min(k, rounds.length)} dernières manches · ${esc(name)}</b> (la plus récente en premier)\n` + items.join("  ") +
+  return `<b>${Math.min(k, rounds.length)} dernières manches · ${esc(name)}</b> (la plus récente en premier, ${rounds.length} au total)\n` + items.join("  ") +
     "\n<i>ᵗ Telegram · ᶜ CSV · ᵏ capture · sans marque : saisie sur le site</i>";
 }
 const HELP = [
-  "<b>Commandes</b>",
-  "/stats — statistiques du profil suivi",
+  "<b>Aviator Star Bot</b> — statistiques sur vos manches réelles",
+  "",
+  "/ajouter 1,52 3,10 1,20 — ajouter des manches (de la plus ancienne à la plus récente)",
   "/historique [n] — les n dernières manches (20 par défaut, 50 max)",
-  "/ajouter 1,52 3,10 … — ajouter des manches réelles, de la plus ancienne à la plus récente",
-  "/signal — probabilités théoriques et observées, avec leurs limites",
+  "/stats — statistiques et qualité des données",
+  "/signal — STAR BOT SIGNAL : analyse, validation et limites",
+  "/effacer — effacer l'historique du profil (avec confirmation)",
+  "/test — vérifier le moteur d'analyse et le stockage",
   "/aide — cette aide",
   "",
-  "Ce bot ne se connecte pas à Bwin, ne prédit rien et ne place aucun pari.",
+  "Le bot fonctionne même si le site est fermé. Il ne se connecte pas à Bwin, ne prédit rien et ne place aucune mise.",
 ].join("\n");
+
+/* deterministic sample shaped like Aviator's published distribution, for /test only (never stored, never shown as data) */
+function selfTestSample(n, seed) {
+  let x = seed >>> 0; const r = () => { x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; };
+  return Array.from({ length: n }, () => Math.max(1, Math.floor((E.RTP / (1 - r())) * 100) / 100));
+}
+async function selfTest(env) {
+  const t0 = Date.now(), out = [];
+  const check = (label, fn) => { try { out.push([label, !!fn()]); } catch (e) { out.push([label, false]); } };
+  check("probabilité théorique ≥ 2× = 48,5 %", () => Math.abs(E.theoGE(2) - 0.485) < 1e-9);
+  check("lecture des valeurs (1,52 / 3.10 / x)", () => { const r = E.parseList("1,52 3.10 x 0,5"); return r.ok.length === 2 && r.bad.length === 2; });
+  check("statistiques (moyenne, médiane, série)", () => { const s = E.stats([2.5, 1.2, 1.1, 1.3]); return Math.abs(s.mean - 1.525) < 1e-9 && E.median([3, 1, 2]) === 2 && s.streak === 3; });
+  check("test du khi² (valeur de référence)", () => Math.abs(E.gammaQ(1.5, 7.815 / 2) - 0.05) < 0.001);
+  const sample = selfTestSample(1500, 20261013);
+  check("validation : aucun faux avantage sur 1 500 manches conformes", () => { const v = E.validate(sample); return v.status === "done" && v.edge === false; });
+  check("estimations vs résultats : pas d'amélioration factice", () => { const w = E.walkForward(sample); return w.status === "done" && !w.better; });
+  check("qualité : données triées détectées", () => E.dataQuality(sample.slice().sort((a, b) => a - b), 0).items.some(x => x.label === "Ordre" && !x.ok));
+  let storageOk = false;
+  try { const k = "selftest", v = { at: Date.now() }; await store(env).write(k, v); const back = await store(env).read(k); storageOk = back && back.at === v.at; await store(env).remove(k); } catch {}
+  out.push(["stockage permanent (écriture / lecture)", storageOk]);
+  return { out, ms: Date.now() - t0, ok: out.every(x => x[1]) };
+}
 
 /* ---------------- rounds ---------------- */
 async function appendRounds(env, profileId, values, src) {
@@ -133,6 +162,21 @@ async function appendRounds(env, profileId, values, src) {
   profiles[profileId].updatedAt = Date.now();
   await store(env).write("profiles", profiles);
   return { profile: profiles[profileId], data, added: fresh, dropped };
+}
+async function appendLog(env, id, rounds, why) {
+  const { sig } = signalOf(rounds);
+  const e = Object.assign(E.logEntry(rounds, sig), { why });
+  const log = (await store(env).read("log:" + id)) || [];
+  log.push(e); if (log.length > 300) log.splice(0, log.length - 300);
+  await store(env).write("log:" + id, log);
+  return e;
+}
+async function clearProfile(env, id) {
+  const profiles = await getProfiles(env);
+  if (!profiles[id]) return false;
+  await store(env).write("rounds:" + id, { rounds: [], src: "" }); await store(env).remove("log:" + id);
+  profiles[id].updatedAt = Date.now(); await store(env).write("profiles", profiles);
+  return true;
 }
 async function notifyNewRounds(env, profileId, added, src) {
   const c = await getConfig(env);
@@ -148,50 +192,90 @@ async function notifyNewRounds(env, profileId, added, src) {
 }
 
 /* ---------------- Telegram webhook ---------------- */
+const allowedId = env => String(env.ALLOWED_USER_ID || "").trim();
 async function handleUpdate(env, update) {
   const msg = update.message || update.edited_message;
   if (!msg || !msg.chat || typeof msg.text !== "string") return;
-  const chatId = msg.chat.id, text = msg.text.trim();
+  if (msg.chat.type && msg.chat.type !== "private") return;          // private chats only
+  const chatId = msg.chat.id, fromId = String(msg.from?.id ?? ""), text = msg.text.trim().slice(0, 4000);
   const [cmdRaw, ...args] = text.split(/\s+/);
   const cmd = cmdRaw.toLowerCase().replace(/@\w+$/, "");
   const c = await getConfig(env);
+  const who = [msg.from?.first_name, msg.from?.username ? "@" + msg.from.username : ""].filter(Boolean).join(" ") || String(chatId);
+  const allow = allowedId(env);
 
+  // 1. authorisation: only the Telegram account in ALLOWED_USER_ID (when set) may use the bot
+  if (allow && fromId !== allow) {
+    return send(env, chatId, `Ce bot est privé.\nVotre identifiant Telegram : <code>${esc(fromId)}</code>\nSi ce bot est le vôtre, mettez cet identifiant dans le secret ALLOWED_USER_ID sur Cloudflare.`);
+  }
   if (c.chatId !== chatId) {
     const code = args[0] || "";
-    if (cmd === "/start" && c.linkCode && code && timingSafeEqual(code, c.linkCode) && Date.now() < (c.linkExp || 0)) {
-      const who = [msg.from?.first_name, msg.from?.username ? "@" + msg.from.username : ""].filter(Boolean).join(" ");
-      await setConfig(env, { chatId, chatName: who || String(chatId), linkCode: null, linkExp: 0, linkedAt: Date.now(), lastTest: null });
-      await send(env, chatId, "✅ <b>Bot relié à votre Analyseur Aviator.</b>\nRetournez sur le site et appuyez sur « Tester la connexion ».\n\n" + HELP);
+    const byCode = cmd === "/start" && c.linkCode && code && timingSafeEqual(code, c.linkCode) && Date.now() < (c.linkExp || 0);
+    if (allow || byCode) {
+      await setConfig(env, { chatId, chatName: who, linkCode: null, linkExp: 0, linkedAt: Date.now(), lastTest: null });
+      const lock = allow ? "🔒 Bot verrouillé sur votre compte." : `🔓 Pour le verrouiller sur votre compte, ajoutez le secret ALLOWED_USER_ID = <code>${esc(fromId)}</code> dans Cloudflare.`;
+      if (cmd === "/start") return send(env, chatId, "✅ <b>Bot relié.</b> Vos données sont gardées sur votre serveur, même si le site est fermé.\n" + lock + "\nEnvoyez /test pour vérifier que tout fonctionne.\n\n" + HELP);
     } else {
-      await send(env, chatId, "Ce bot est privé. Pour le relier, appuyez sur « Connecter Telegram » sur votre site Analyseur Aviator.");
+      return send(env, chatId, `Ce bot est privé.\nVotre identifiant Telegram : <code>${esc(fromId)}</code>\nPour l'utiliser, mettez cet identifiant dans le secret ALLOWED_USER_ID sur Cloudflare (ou appuyez sur « Connecter Telegram » sur le site).`);
     }
-    return;
   }
 
-  const profiles = await getProfiles(env);
-  const pid = c.tgProfile && profiles[c.tgProfile] ? c.tgProfile : Object.keys(profiles)[0];
+  // 2. profile followed by the bot (created automatically if the site was never used)
+  let profiles = await getProfiles(env);
+  let pid = c.tgProfile && profiles[c.tgProfile] ? c.tgProfile : Object.keys(profiles)[0];
+  if (!pid && cmd === "/ajouter") {
+    pid = "p" + Date.now().toString(36) + "tg";
+    profiles[pid] = { name: "Telegram", createdAt: Date.now(), updatedAt: Date.now() };
+    await store(env).write("profiles", profiles); await store(env).write("rounds:" + pid, { rounds: [], src: "" });
+    await setConfig(env, { tgProfile: pid });
+  }
   const pname = pid ? profiles[pid].name : "";
-  const needProfile = () => send(env, chatId, "Aucun profil sur le site. Créez-en un dans « Profils de suivi », puis réessayez.");
+  const noData = () => send(env, chatId, "DONNÉES INSUFFISANTES : aucune manche enregistrée.\nAjoutez vos manches réelles avec /ajouter 1,52 3,10 1,20");
 
   if (cmd === "/start" || cmd === "/aide" || cmd === "/help") return send(env, chatId, HELP);
-  if (cmd === "/stats") { if (!pid) return needProfile(); const d = await getRounds(env, pid); return send(env, chatId, statsText(pname, d.rounds)); }
-  if (cmd === "/signal") { if (!pid) return needProfile(); const d = await getRounds(env, pid); return send(env, chatId, signalText(pname, d.rounds)); }
+  if (cmd === "/test") {
+    const t = await selfTest(env);
+    return send(env, chatId, [
+      `${t.ok ? "✅" : "❌"} <b>Test du moteur : ${t.out.filter(x => x[1]).length}/${t.out.length} vérifications réussies</b> (${t.ms} ms)`,
+      ...t.out.map(([l, ok]) => `${ok ? "✓" : "✗"} ${l}`),
+      "✓ Telegram : ce message est bien arrivé",
+      "",
+      "<i>Le test utilise un échantillon calculé, jamais enregistré ni mélangé à vos données.</i>",
+    ].join("\n"));
+  }
+  if (cmd === "/stats") { if (!pid) return noData(); const d = await getRounds(env, pid); return send(env, chatId, statsText(pname, d.rounds)); }
+  if (cmd === "/signal") { if (!pid) return noData(); const d = await getRounds(env, pid); return send(env, chatId, signalText(pname, d.rounds)); }
   if (cmd === "/historique") {
-    if (!pid) return needProfile();
+    if (!pid) return noData();
     const k = Math.min(50, Math.max(1, parseInt(args[0], 10) || 20));
     const d = await getRounds(env, pid); return send(env, chatId, historyText(pname, d.rounds, d.src, k));
   }
   if (cmd === "/ajouter") {
-    if (!pid) return needProfile();
+    if (args.join("").length > 2000) return send(env, chatId, "Trop de valeurs d'un coup : envoyez-en au plus 300 par message.");
     const { ok, bad } = E.parseList(args.join(" "));
     if (!ok.length) return send(env, chatId, "Aucune valeur lisible. Exemple : /ajouter 1,52 3,10 1,02\nMinimum 1,00. De la plus ancienne à la plus récente.");
+    if (ok.length > 300) return send(env, chatId, "Trop de valeurs d'un coup : envoyez-en au plus 300 par message.");
     const r = await appendRounds(env, pid, ok, "t");
     if (r.error) return send(env, chatId, r.error);
-    const s = E.stats(r.data.rounds.slice(-100));
+    const all = r.data.rounds, s = E.stats(all.slice(-100)), e = await appendLog(env, pid, all, "Telegram");
     return send(env, chatId, [
-      `✅ ${r.added.length} manche(s) ajoutée(s) à « ${esc(pname)} »` + (bad.length ? ` · ${bad.length} ignorée(s)` : "") + (r.dropped ? ` · ${r.dropped} doublon(s) retiré(s)` : ""),
-      `Total : ${r.data.rounds.length} · ≥ 2× sur les ${s.n} dernières : ${fmtP(s.ge2 / s.n)}`,
+      `✅ ${r.added.length} manche(s) enregistrée(s) dans « ${esc(pname)} »` + (bad.length ? ` · ${bad.length} ignorée(s) (illisibles ou < 1,00)` : "") + (r.dropped ? ` · ${r.dropped} déjà présente(s) ignorée(s)` : ""),
+      `Total : ${all.length} manche(s) · ≥ 2× sur les ${s.n} dernières : ${fmtP(s.ge2 / s.n)} (théorie ${fmtP(E.theoGE(2))})`,
+      `Signal : <b>${esc(e.title)}</b>`,
+      all.length < 30 ? `Données insuffisantes pour une analyse fiable : encore ${30 - all.length} manche(s) au minimum. Aucune prédiction n'est donnée.` : "Statistiques mises à jour · /stats et /signal pour le détail.",
     ].join("\n"));
+  }
+  if (cmd === "/effacer") {
+    if (!pid) return noData();
+    const d = await getRounds(env, pid);
+    if ((args[0] || "").toLowerCase() === "oui") {
+      if (!c.clearPending || c.clearPending.pid !== pid || Date.now() > c.clearPending.exp) return send(env, chatId, "Aucune demande d'effacement en cours (ou elle a expiré). Envoyez d'abord /effacer.");
+      await clearProfile(env, pid); await setConfig(env, { clearPending: null });
+      return send(env, chatId, `🗑 Historique de « ${esc(pname)} » effacé (${c.clearPending.n} manche(s)). Le profil est conservé.`);
+    }
+    if (!d.rounds.length) return send(env, chatId, "L'historique est déjà vide.");
+    await setConfig(env, { clearPending: { pid, n: d.rounds.length, exp: Date.now() + 120000 } });
+    return send(env, chatId, `⚠️ Effacer les ${d.rounds.length} manche(s) et les analyses de « ${esc(pname)} » ?\nPour confirmer, envoyez <b>/effacer oui</b> dans les 2 minutes. Sinon, rien n'est effacé.`);
   }
   return send(env, chatId, "Commande inconnue.\n\n" + HELP);
 }
@@ -218,7 +302,7 @@ async function fullState(env) {
 
 async function api(req, env, ctx, path) {
   if (path === "/api/health") {
-    return json({ ok: true, service: "analyseur-aviator", botTokenSet: !!env.BOT_TOKEN, adminKeySet: !!(env.ADMIN_KEY && env.ADMIN_KEY.length >= 12), liveSource: null });
+    return json({ ok: true, service: "analyseur-aviator", botTokenSet: !!env.BOT_TOKEN, adminKeySet: !!(env.ADMIN_KEY && env.ADMIN_KEY.length >= 12), allowedUserSet: !!allowedId(env), liveSource: null });
   }
   if (!env.ADMIN_KEY || env.ADMIN_KEY.length < 12) return fail(503, "ADMIN_KEY manquant ou trop court (12 caractères minimum) dans les secrets Cloudflare.");
   if (!authorized(req, env)) return fail(401, "Clé d'accès incorrecte.");
@@ -268,10 +352,7 @@ async function api(req, env, ctx, path) {
   }
   if (path === "/api/rounds/clear" && req.method === "POST") {
     const b = await readBody(req); const id = String(b.profile || "");
-    const profiles = await getProfiles(env);
-    if (!profiles[id]) return fail(404, "Profil introuvable.");
-    await store(env).write("rounds:" + id, { rounds: [], src: "" }); await store(env).remove("log:" + id);
-    profiles[id].updatedAt = Date.now(); await store(env).write("profiles", profiles);
+    if (!(await clearProfile(env, id))) return fail(404, "Profil introuvable.");
     return json({ ok: true });
   }
   if (path === "/api/rounds/undo" && req.method === "POST") {
@@ -293,7 +374,9 @@ async function api(req, env, ctx, path) {
       { command: "stats", description: "Statistiques du profil suivi" },
       { command: "historique", description: "Dernières manches" },
       { command: "ajouter", description: "Ajouter des manches réelles" },
-      { command: "signal", description: "Probabilités et limites" },
+      { command: "signal", description: "STAR BOT SIGNAL et limites" },
+      { command: "effacer", description: "Effacer l'historique (avec confirmation)" },
+      { command: "test", description: "Vérifier le moteur" },
       { command: "aide", description: "Aide" },
     ] });
     const code = [...crypto.getRandomValues(new Uint8Array(9))].map(b => "abcdefghjkmnpqrstuvwxyz23456789"[b % 31]).join("");

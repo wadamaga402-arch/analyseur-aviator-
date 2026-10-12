@@ -2,3 +2,5 @@
 BOT_TOKEN=
 # Mot de passe de votre site, inventé par vous, 12 caractères minimum. Ce n'est PAS votre mot de passe Bwin.
 ADMIN_KEY=
+# Votre identifiant Telegram (nombre). Le bot vous le donne si vous lui écrivez avant de le remplir. Seul ce compte peut utiliser le bot.
+ALLOWED_USER_ID=
