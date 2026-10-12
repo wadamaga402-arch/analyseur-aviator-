@@ -1,6 +1,7 @@
 {
   "name": "analyseur-aviator",
   "private": true,
+  "type": "module",
   "description": "Analyseur statistique Aviator (données saisies ou importées) avec bot Telegram privé. Aucune connexion à Bwin, aucune prédiction, aucun pari.",
   "scripts": {
     "build": "node scripts/build-site.mjs && node scripts/sync-engine.mjs",

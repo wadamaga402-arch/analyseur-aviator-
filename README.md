@@ -6,6 +6,9 @@ Indépendant : non affilié à Bwin ni à Spribe.
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/wadamaga402-arch/analyseur-aviator)
 
 ## Ce que fait le projet
+- **Tableau de bord** (menu Dashboard · History · Analytics · Strategy · Settings, barre d'onglets sur iPhone) : signal explicatif, cartes Average Multiplier / Total Games Analyzed / Data Integrity / Market Analysis, graphique des multiplicateurs importés, AI Probability Engine, Suggested Cashout descriptif, Last 10 Rounds, Top High Rollers (« Données indisponibles »), bouton Recalculate Data.
+- **Moteur de validation** (`validate` dans `site/analyseur.html`, copié dans `src/engine.js`) : séparation chronologique 70 % entraînement / 30 % test, 42 règles essayées sur l'entraînement, meilleure règle appliquée au test, comparaison à la référence (miser à chaque manche) et à la théorie (−3 %), taux de réussite avec IC de Wilson, faux signaux, retour avec IC 95 %. Un avantage n'est déclaré que si la borne basse de l'IC du retour est positive sur au moins 100 mises de test et que la règle bat la référence.
+- **Signaux** : ANALYSE EN COURS · DONNÉES INSUFFISANTES (< 30 manches réelles ou profil Démo) · ANALYSE HISTORIQUE DISPONIBLE (30 à 199) · RISQUE ÉLEVÉ (données non conformes à la distribution publiée, test du khi² p < 0,001, ou > 10 % de valeurs illisibles) · AUCUN AVANTAGE STATISTIQUE DÉTECTÉ · AVANTAGE OBSERVÉ HORS ÉCHANTILLON — À CONFIRMER (uniquement si la validation le démontre).
 - **Site** (`public/index.html`) : saisie, liste collée, import CSV, profils, répartition, graphique, probabilités théoriques séparées des observations, source de chaque manche, journal des erreurs.
 - **Serveur** (`src/worker.js`, Cloudflare Workers, gratuit) : stocke les profils (Durable Object), protège l'accès par une clé, relie un bot Telegram privé.
 - **Bot Telegram** : `/start`, `/stats`, `/historique [n]`, `/ajouter 1,52 3,10`, `/signal`, `/aide`, et une notification à chaque nouvelle manche ajoutée.
@@ -16,6 +19,12 @@ Indépendant : non affilié à Bwin ni à Spribe.
 - **Aucun pari.** Le code n'a aucune fonction de mise.
 - Le site ne demande jamais vos identifiants Bwin.
 
+## Limites connues
+- Le moteur ne peut pas trouver d'avantage dans un jeu à tirages indépendants : c'est le résultat attendu et il est affiché tel quel.
+- Avec 42 combinaisons essayées, un « avantage » isolé peut encore venir du hasard : il est toujours marqué « à confirmer ».
+- Sur le serveur, le nombre de valeurs illisibles (Data Integrity) n'est compté que pendant la session.
+- La lecture de captures d'écran ne fonctionne que dans la version Claude du site.
+
 ## Secrets (Cloudflare → Workers → analyseur-aviator → Paramètres → Variables et secrets)
 | Nom | Valeur |
 | --- | --- |
@@ -25,8 +34,9 @@ Indépendant : non affilié à Bwin ni à Spribe.
 ## Développement
 ```
 npm install
-npm test          # moteur + 25 tests de bout en bout (serveur Cloudflare local + faux Telegram)
-sh scripts/run-ui-test.sh   # test du site dans un navigateur (Playwright requis)
+npm test                     # 17 tests du moteur + 25 tests de bout en bout (serveur Cloudflare local + faux Telegram)
+PW_PATH=<playwright> node test/dashboard.mjs   # 59 tests du tableau de bord (vide, iPhone 320-430 px, graphiques = données)
+sh scripts/run-ui-test.sh    # site + serveur + Telegram dans un navigateur
 ```
 Modifier le site : éditer `site/analyseur.html` puis `npm run build` (régénère `public/index.html` et `src/engine.js`).
 

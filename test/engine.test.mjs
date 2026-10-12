@@ -10,3 +10,43 @@ test("capture : plus récent en premier inversé", ()=>{ assert.deepEqual(E.pars
 test("doublons de chevauchement", ()=>{ assert.deepEqual(E.dedupeOverlap([1,2,3.5,4,5],[3.5,4,5,6]).fresh,[6]); assert.equal(E.dedupeOverlap([1,2,5],[2,5,6]).dropped,0); });
 test("sources : anciens profils et Telegram", ()=>{ assert.deepEqual(E.normSrc([1,2],undefined),["m","m"]); assert.deepEqual(E.normSrc([1,2],["t","c"]),["t","c"]); assert.equal(E.SRC.t,"saisie Telegram"); });
 test("démo suit la distribution théorique", ()=>{ const a=Array.from({length:100000},E.demoRound); assert.ok(Math.abs(E.geRate(a,2)-0.485)<0.008); assert.ok(a.every(v=>v>=1)); });
+
+/* ---- validation engine ---- */
+function rng(seed){ let x=seed>>>0; return ()=>{ x^=x<<13; x>>>=0; x^=x>>17; x^=x<<5; x>>>=0; return x/4294967296; }; }
+function fairRounds(n, seed){ const r=rng(seed); return Array.from({length:n},()=>Math.max(1, Math.floor((E.RTP/(1-r()))*100)/100)); }
+test("khi² : p-valeurs de référence", ()=>{
+  assert.ok(Math.abs(E.gammaQ(1.5, 7.815/2)-0.05)<0.001);   // khi² 7,815 à 3 ddl = p 0,05
+  assert.ok(Math.abs(E.gammaQ(1.5, 11.345/2)-0.01)<0.0005);
+  assert.ok(Math.abs(E.gammaQ(1.5, 0.584/2)-0.90)<0.002);
+});
+test("khi² : données conformes acceptées, données triées rejetées", ()=>{
+  const a=fairRounds(2000, 7); assert.ok(E.chiSquareFit(a).p>0.01);
+  const biased=a.map(v=>v<2?v:Math.min(v,1.9)); assert.ok(E.chiSquareFit(biased).p<1e-6);
+});
+test("validation : pas assez de données sous 200 manches", ()=>{ assert.equal(E.validate(fairRounds(150,1)).status,"insufficient"); });
+test("validation : le hasard pur ne produit pas de faux avantage (50 essais)", ()=>{
+  let edges=0;
+  for (let s=1;s<=50;s++){ const v=E.validate(fairRounds(3000, s*97)); assert.equal(v.status,"done"); if (v.edge) edges++; }
+  assert.ok(edges<=3, "faux avantages détectés : "+edges+"/50");
+});
+test("validation : un vrai motif caché est détecté hors échantillon", ()=>{
+  const a=fairRounds(6000, 4242);
+  for (let i=0;i<a.length;i++) if (E.streaksBelow2(a.slice(Math.max(0,i-3),i)).at(-1)>=3) a[i]=Math.max(a[i],3.5); // after 3 lows, round always reaches 3.5x
+  const v=E.validate(a);
+  assert.equal(v.edge,true); assert.ok(v.test.roi>0); assert.ok(v.test.roi>v.baseline.roi);
+});
+test("validation : séparation chronologique 70/30 et chiffres cohérents", ()=>{
+  const v=E.validate(fairRounds(1000, 3)); assert.equal(v.trainN,700); assert.equal(v.testN,300);
+  assert.equal(v.test.wins+v.test.losses, v.test.bets); assert.ok(v.test.ci[0]<=v.test.roi && v.test.roi<=v.test.ci[1]);
+  assert.ok(Math.abs(v.theoRoi+0.03)<1e-9);
+});
+test("signaux : chaque état", ()=>{
+  assert.equal(E.signalState([], {}).code,"insufficient");
+  assert.equal(E.signalState(fairRounds(500,5), {demo:true}).code,"insufficient");
+  assert.equal(E.signalState(fairRounds(20,5), {}).code,"insufficient");
+  assert.equal(E.signalState(fairRounds(100,5), {}).code,"history");
+  assert.equal(E.signalState(fairRounds(100,5), {running:true}).code,"running");
+  assert.equal(E.signalState(fairRounds(300,5).map(v=>Math.min(v,1.4)), {}).code,"risk");
+  assert.equal(E.signalState(fairRounds(100,5), {anomalies:30}).code,"risk");
+  assert.equal(E.signalState(fairRounds(3000,11), {}).code,"none");
+});

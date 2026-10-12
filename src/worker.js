@@ -89,9 +89,15 @@ function statsText(name, rounds) {
 function signalText(name, rounds) {
   const n = rounds.length, q = E.quality(n);
   const rows = [1.5, 2, 3, 5, 10].map(m => `≥ ${fmtX(m)} : ${fmtP(E.theoGE(m))} (théorie) · ${n ? fmtP(E.geRate(rounds, m)) : "—"} (observé)`);
+  const v = n >= E.VAL.minRounds ? E.validate(rounds) : null;
+  const sig = E.signalState(rounds, { validation: v || { status: "insufficient" } });
   return [
+    `<b>${esc(sig.title)}</b>`,
+    esc(sig.why),
+    "",
     `<b>Signal statistique · ${esc(name)}</b>`,
     `Données : ${n} manches · qualité ${q.txt}`,
+    v && v.status === "done" ? `Validation : test sur ${v.testN} manches · retour ${fmtP(v.test.roi)} contre ${fmtP(v.baseline.roi)} pour la référence` : `Validation : ${E.VAL.minRounds} manches nécessaires`,
     "", "Chance d'atteindre au moins :", ...rows, "",
     "Retour moyen : environ −3 % de la mise, quel que soit le niveau d'encaissement.",
     "Limite : chaque manche est indépendante. Aucun outil ne connaît la prochaine. Ce n'est pas un conseil de mise.",

@@ -95,7 +95,7 @@ await step("/ajouter ajoute des manches source Telegram", async () => {
 });
 await step("/ajouter sans valeur : message d'aide", async () => { await tgUpdate("/ajouter"); await settle(); assert.match(lastSent().payload.text, /Aucune valeur lisible/); });
 await step("/historique", async () => { await tgUpdate("/historique 3"); await settle(); const t = lastSent().payload.text; assert.match(t, /3 dernières manches/); assert.match(t, /7,85×ᵗ  2,10×ᵗ  1,02×ᶜ/); });
-await step("/signal : théorie, observé, limites", async () => { await tgUpdate("/signal"); await settle(); const t = lastSent().payload.text; assert.match(t, /48,5 %/); assert.match(t, /Aucun outil ne connaît la prochaine/); });
+await step("/signal : état, théorie, observé, limites", async () => { await tgUpdate("/signal"); await settle(); const t = lastSent().payload.text; assert.match(t, /DONNÉES INSUFFISANTES/); assert.match(t, /48,5 %/); assert.match(t, /Aucun outil ne connaît la prochaine/); });
 await step("/aide et commande inconnue", async () => { await tgUpdate("/aide"); await settle(); assert.match(lastSent().payload.text, /\/historique/); await tgUpdate("/predire"); await settle(); assert.match(lastSent().payload.text, /Commande inconnue/); });
 await step("notification à chaque nouvelle manche ajoutée sur le site", async () => {
   const before = calls.length;
