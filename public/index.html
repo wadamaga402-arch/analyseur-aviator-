@@ -1,4 +1,4 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><style>:root{color-scheme:dark;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>Analyseur Aviator</title>
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><style>:root{color-scheme:dark;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>Aviator Star Bot</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;800&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
@@ -86,6 +86,33 @@ td{font-family:var(--f-mono)}
 .confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#2a1013;border:1px solid var(--red);border-radius:8px;padding:8px 10px;font-size:14px}
 .err{color:var(--red-soft);font-size:13px;min-height:1em}
 [hidden]{display:none!important}
+:root{--green:#3ddc84}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.14em;color:var(--red-soft);font-weight:600}
+.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.actions button{width:100%;min-height:42px}
+.actions #analyzeBtn{grid-column:1/-1}
+@media(min-width:700px){.actions{grid-template-columns:repeat(4,minmax(0,1fr))}.actions #analyzeBtn{grid-column:auto}.actions #clearBtn{grid-column:1/-1}}
+button.danger{color:var(--red-soft);border-color:color-mix(in srgb,var(--red) 45%,transparent)}
+.sigpanel.t-ok{border-left-color:var(--green)} .t-ok .sigdot{background:var(--green)}
+.dq{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.dq li{display:grid;grid-template-columns:20px minmax(0,1fr);gap:8px;align-items:start;font-size:13.5px;background:var(--panel-2);border-radius:8px;padding:8px 10px}
+.dq li b{display:block;font-weight:600}
+.dq li span.d{color:var(--muted);font-size:12.5px}
+.dq .ic{font-weight:800;line-height:1.4}
+.dq .ic.ok{color:var(--green)} .dq .ic.ko{color:var(--red-soft)}
+.pill.good{color:var(--green);border-color:color-mix(in srgb,var(--green) 50%,transparent)}
+.pill.warnp{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 50%,transparent)}
+.pill.badp{color:var(--red-soft);border-color:color-mix(in srgb,var(--red) 50%,transparent)}
+.loglist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:360px;overflow-y:auto}
+.loglist li{background:var(--panel-2);border-radius:8px;padding:8px 10px;font-size:13px;display:flex;flex-direction:column;gap:2px}
+.loglist .lt{font-family:var(--f-mono);font-size:11.5px;color:var(--muted)}
+.loglist .ls{font-weight:700;letter-spacing:.02em}
+.loglist .ln{color:var(--muted);font-size:12.5px}
+.yes-g{color:var(--green)} .no-r{color:var(--red-soft)}
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.kpis div{background:var(--panel-2);border-radius:8px;padding:8px 10px;min-width:0}
+.kpis span{display:block;font-size:12px;color:var(--muted)}
+.kpis b{font-family:var(--f-mono);font-size:16px;font-variant-numeric:tabular-nums}
 /* ---- app shell: bottom tab bar on iPhone, sidebar from 900px ---- */
 .nav{position:fixed;left:0;right:0;bottom:0;z-index:20;display:grid;grid-template-columns:repeat(5,1fr);background:color-mix(in srgb,var(--panel) 92%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px))}
 .nav button{background:none;border:0;border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;color:var(--muted);font-size:10.5px;font-weight:600;min-width:0}
@@ -168,8 +195,8 @@ footer b{color:var(--fg)}
 <div class="wrap">
   <header class="top">
     <div>
-      <h1>Analyseur <span>Aviator</span></h1>
-      <div class="tag">Outil indépendant de statistiques. Non affilié à Bwin ni à Spribe.</div>
+      <h1>Aviator <span>Star Bot</span></h1>
+      <div class="tag">Moteur d'analyse statistique de vos manches importées. Non affilié à Bwin ni à Spribe. Aucun accès en direct.</div>
     </div>
     <div class="badges">
       <span class="pill off" id="srcPill"><i></i><span id="srcTxt">Direct : indisponible</span></span>
@@ -208,10 +235,19 @@ footer b{color:var(--fg)}
   <div class="view two" data-view="dashboard">
     <div class="col">
       <section class="panel sigpanel" id="sigPanel" aria-label="Signal">
+        <div class="eyebrow">★ STAR BOT SIGNAL</div>
         <div class="sighead"><span class="sigdot" id="sigDot"></span><h2 id="sigTitle">ANALYSE EN COURS</h2></div>
         <p class="sigwhy" id="sigWhy">Chargement…</p>
         <dl class="sigmeta" id="sigMeta"></dl>
-        <div class="row"><button class="primary" id="recalcBtn">Recalculate Data</button><span class="note" id="recalcInfo" role="status"></span></div>
+        <div class="actions" role="group" aria-label="Actions">
+          <button id="importBtn">Importer l'historique</button>
+          <button class="primary" id="analyzeBtn">Analyser</button>
+          <button id="recalcBtn">Recalculer</button>
+          <button id="exportResBtn">Exporter les résultats</button>
+          <button class="ghost danger" id="clearBtn">Effacer les données de test</button>
+        </div>
+        <div id="clearConfirm"></div>
+        <p class="note" id="recalcInfo" role="status"></p>
       </section>
 
       <div class="cards" id="cards" aria-label="Cartes statistiques">
@@ -239,11 +275,31 @@ footer b{color:var(--fg)}
         </table></div>
         <p class="note">Le retour moyen est d'environ <b>−3 % par mise</b>, quel que soit le niveau d'encaissement choisi. Aucun niveau n'est gagnant sur la durée.</p>
       </section>
+
+      <section class="panel" aria-label="Historical Analytics">
+        <h2>Historical Analytics <span class="sub2">statistiques par fenêtre de manches</span></h2>
+        <div id="histBody"></div>
+      </section>
+
+      <section class="panel" aria-label="Model Performance">
+        <h2>Model Performance <span class="sub2">estimations comparées aux résultats réels</span></h2>
+        <div id="perfBody"></div>
+      </section>
     </div>
     <div class="col">
       <section class="panel" aria-label="Last 10 Rounds">
         <h2>Last 10 Rounds <span class="sub2">la plus récente en premier</span></h2>
         <ol class="last10" id="last10"></ol>
+      </section>
+
+      <section class="panel" aria-label="Data Quality">
+        <h2>Data Quality <span class="pill" id="dqPill">—</span></h2>
+        <ul class="dq" id="dqBody"></ul>
+      </section>
+
+      <section class="panel" aria-label="Signal History">
+        <h2>Signal History <span class="sub2">analyses enregistrées et manche suivante</span></h2>
+        <div id="logBody"></div>
       </section>
 
       <section class="panel" aria-label="Suggested Cashout">
@@ -602,6 +658,65 @@ function signalState(a, opts){
   return {code:"none", title:"AUCUN AVANTAGE STATISTIQUE DÉTECTÉ", tone:"muted",
     why:"Sur "+n+" manches réelles, aucune des "+(v.combos||0)+" règles testées n'a battu le hasard hors échantillon. C'est le résultat attendu pour un jeu à tirages indépendants."};
 }
+/* ---- prospective check: estimates made with past rounds only, scored against the round that followed ---- */
+function walkForward(a, opts){
+  const o=opts||{}, win=o.win||100, start=o.start||30, m=o.m||2, prior=10;
+  const n=a.length, need=start+20;
+  if (n<need) return {status:"insufficient", n, need};
+  const pt=theoGE(m);
+  let c=0; for (let j=Math.max(0,start-win);j<start;j++) if (a[j]>=m) c++;
+  let sm=0, st=0, sd=0, sd2=0, k=0, sumP=0, hits=0;
+  for (let i=start;i<n;i++){
+    const from=Math.max(0,i-win), len=i-from;
+    const pe=(c+prior*pt)/(len+prior);           // empirical frequency of the last `win` rounds, lightly pulled toward theory
+    const y=a[i]>=m?1:0;
+    const bm=(pe-y)*(pe-y), bt=(pt-y)*(pt-y), d=bm-bt;
+    sm+=bm; st+=bt; sd+=d; sd2+=d*d; k++; sumP+=pe; hits+=y;
+    if (a[i]>=m) c++;                             // slide the window
+    if (i-win>=0 && a[i-win]>=m) c--;
+  }
+  const md=sd/k, se=Math.sqrt(Math.max(0,(sd2-k*md*md)/(k-1)))/Math.sqrt(k);
+  return {status:"done", n, scored:k, m, win, brierModel:sm/k, brierTheory:st/k, skill:1-sm/st,
+    diffCI:[md-1.96*se, md+1.96*se], meanEstimate:sumP/k, observedRate:hits/k, theory:pt,
+    better: md+1.96*se<0};                         // model better than theory only if the whole CI is below zero
+}
+/* ---- data quality checks ---- */
+function dataQuality(a, anomalies){
+  const n=a.length, bad=anomalies||0, items=[];
+  items.push({ok:n>=VAL.minRounds, label:"Quantité", detail: n+" manche(s) réelle(s) · "+quality(n).txt+(n<VAL.minRounds?" · validation possible dès "+VAL.minRounds:"")});
+  const badRate = n+bad ? bad/(n+bad) : 0;
+  items.push({ok:badRate<=0.05, label:"Valeurs illisibles", detail: bad+" ignorée(s)"+(n+bad?" ("+(badRate*100).toFixed(1).replace(".",",")+" %)":"")});
+  const fit=chiSquareFit(a);
+  items.push({ok: !fit || fit.p>=0.001, label:"Conformité au jeu", detail: fit ? "khi² = "+fit.chi.toFixed(1).replace(".",",")+" · p = "+(fit.p<0.001?fit.p.toExponential(1):fit.p.toFixed(3).replace(".",",")) : "test possible dès 30 manches"});
+  let run=1, maxRun=n?1:0; for (let i=1;i<n;i++){ run = a[i]===a[i-1] ? run+1 : 1; if (run>maxRun) maxRun=run; }
+  items.push({ok:maxRun<3, label:"Valeurs répétées", detail: maxRun>=3 ? "la même valeur apparaît "+maxRun+" fois de suite : copie en double ?" : "aucune répétition suspecte"});
+  let ge=0, le=0; for (let i=1;i<n;i++){ if (a[i]>=a[i-1]) ge++; if (a[i]<=a[i-1]) le++; }
+  const geR = n>1 ? ge/(n-1) : 0.5, leR = n>1 ? le/(n-1) : 0.5, sortedLike = geR>=0.9 || leR>=0.9;
+  items.push({ok: n<20 || !sortedLike, label:"Ordre", detail: n<20 ? "trop peu de manches pour juger" : (sortedLike ? "les valeurs semblent triées : l'ordre chronologique est peut-être perdu" : "ordre plausible ("+Math.round(geR*100)+" % de pas en hausse ou égaux)")});
+  const ones = n ? a.filter(v=>v<1.01).length/n : 0;
+  items.push({ok: n<50 || ones<0.12, label:"Manches à 1,00×", detail: n ? (ones*100).toFixed(1).replace(".",",")+" % (≈ 3 % attendus)" : "—"});
+  items.push({ok:true, label:"Direct", detail:"0 manche en direct : aucune source autorisée"});
+  const fails = items.filter(x=>!x.ok).length;
+  return {n, items, fails, level: n<30 ? "insuffisante" : (fails>=2 ? "douteuse" : (fails===1 ? "à vérifier" : "bonne"))};
+}
+function windowStats(a){
+  return [10,50,100,500,Infinity].map(k=>{ const x = k===Infinity ? a : a.slice(-k), s=stats(x);
+    return {k, n:s.n, mean:s.mean, median:s.median, ge2:s.n?s.ge2/s.n:NaN, ge5:geRate(x,5), max:s.max}; });
+}
+function logEntry(a, sig, at){
+  const last=a.slice(-100);
+  return {at: at||Date.now(), n:a.length, code:sig.code, title:sig.title, p2: last.length>=30 ? +geRate(last,2).toFixed(4) : null};
+}
+function scoreLog(log, a){
+  // what happened right after each recorded analysis (round number n+1), compared with the estimate stored at the time
+  let k=0, hits=0, sumP=0, sumT=0;
+  const rows = (log||[]).map(e=>{
+    const next = e.n < a.length ? a[e.n] : null;
+    if (next!=null && e.p2!=null){ k++; if (next>=2) hits++; sumP+=e.p2; sumT+=theoGE(2); }
+    return Object.assign({}, e, {next});
+  });
+  return {rows, scored:k, hits, meanEstimate: k?sumP/k:NaN, theory: theoGE(2)};
+}
 function demoRound(){
   // Fictitious round drawn from the theoretical crash distribution (RTP 97%)
   const u = Math.random();
@@ -638,7 +753,7 @@ function demoRound(){
   function lsGet(){
     try{
       const o=JSON.parse(localStorage.getItem("aviator_profiles")||"{}");
-      for (const k in o){ o[k].rounds=Array.isArray(o[k].rounds)?o[k].rounds:[]; o[k].src=normSrc(o[k].rounds,o[k].src); }
+      for (const k in o){ o[k].rounds=Array.isArray(o[k].rounds)?o[k].rounds:[]; o[k].src=normSrc(o[k].rounds,o[k].src); o[k].log=Array.isArray(o[k].log)?o[k].log:[]; }
       return o;
     }catch(e){ return {}; }
   }
@@ -659,7 +774,7 @@ function demoRound(){
     try{
       const ref = state.db.collection("data/users/"+state.uid).doc(id);
       if (!p) await ref.delete();
-      else await ref.set({name:p.name, rounds:p.rounds.slice(-MAXR), src:p.src.slice(-MAXR).join(""), anomalies:p.anomalies||0, createdAt:p.createdAt, updatedAt:p.updatedAt});
+      else await ref.set({name:p.name, rounds:p.rounds.slice(-MAXR), src:p.src.slice(-MAXR).join(""), log:(p.log||[]).slice(-LOGMAX), anomalies:p.anomalies||0, createdAt:p.createdAt, updatedAt:p.updatedAt});
       $("storeNote").textContent = "Vos profils sont enregistrés dans votre espace privé de cette page. Le site ne demande jamais vos identifiants Bwin.";
     }catch(e){
       $("storeNote").textContent = e && e.code==="quota_exceeded" ? "Espace plein : supprimez un profil pour continuer à enregistrer." : "Enregistrement impossible pour l'instant. Vos données restent affichées tant que la page est ouverte.";
@@ -695,7 +810,7 @@ function demoRound(){
       const next = {};
       for (const id in s.profiles){
         const x = s.profiles[id], r = x.rounds||[];
-        next[id] = {name:x.name, rounds:r, src:normSrc(r, (x.src||"").split("")), anomalies:0, createdAt:x.createdAt, updatedAt:x.updatedAt};
+        next[id] = {name:x.name, rounds:r, src:normSrc(r, (x.src||"").split("")), log:Array.isArray(x.log)?x.log:[], anomalies:(state.profiles[id]&&state.profiles[id].anomalies)||0, createdAt:x.createdAt, updatedAt:x.updatedAt};
         const added = r.length - (before[id]||0);
         if (state.server.ok && before[id]!==undefined && added>0){
           const fromTg = next[id].src.slice(-added).filter(c=>c==="t").length;
@@ -746,7 +861,7 @@ function demoRound(){
         snap.docs.forEach(d=>{
           if (state.dirty.has(d.id) && state.profiles[d.id]) { next[d.id]=state.profiles[d.id]; return; }
           const x=d.data(); const r=Array.isArray(x.rounds)?x.rounds.slice():[];
-          next[d.id]={name:x.name, rounds:r, src:normSrc(r, typeof x.src==="string"?x.src.split(""):x.src), anomalies:x.anomalies||0, createdAt:x.createdAt, updatedAt:x.updatedAt};
+          next[d.id]={name:x.name, rounds:r, src:normSrc(r, typeof x.src==="string"?x.src.split(""):x.src), log:Array.isArray(x.log)?x.log.slice():[], anomalies:x.anomalies||0, createdAt:x.createdAt, updatedAt:x.updatedAt};
         });
         state.dirty.forEach(id=>{ if(state.profiles[id] && !next[id]) next[id]=state.profiles[id]; });
         state.profiles = next;
@@ -787,10 +902,11 @@ function demoRound(){
     p.anomalies = (p.anomalies||0) + (bad?bad.length:0);
     p.updatedAt = Date.now();
     persist(state.activeId);
+    if (!state.server) recordAnalysis("ajout");
     if (state.server){
       const id = state.activeId;
       apiCall("POST","/api/rounds",{profile:id, values:vals, src})
-        .then(()=>loadServer(true))
+        .then(()=>loadServer(true)).then(()=>recordAnalysis("ajout"))
         .catch(e=>{ const t=serverFail(e,"Enregistrement sur le serveur"); msg(t+". Les valeurs n'ont pas été enregistrées.", true); loadServer(true); });
     }
     const dup = extra&&extra.dup || 0;
@@ -919,7 +1035,7 @@ function demoRound(){
       return;
     }
     const id = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
-    state.profiles[id] = {name, rounds:[], src:[], anomalies:0, createdAt:Date.now(), updatedAt:Date.now()};
+    state.profiles[id] = {name, rounds:[], src:[], log:[], anomalies:0, createdAt:Date.now(), updatedAt:Date.now()};
     state.activeId=id; $("newProf").value=""; persist(id); stop(); render();
   };
   $("newProf").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); $("addProf").click(); } });
@@ -1093,7 +1209,7 @@ function demoRound(){
     render();
   }
   $("nav").addEventListener("click", e=>{ const b=e.target.closest("button[data-go]"); if (b) go(b.dataset.go); });
-  $("profSel").addEventListener("change", e=>{ const id=e.target.value; state.userPicked=true; stop(); state.activeId=id; render(); });
+  $("profSel").addEventListener("change", e=>{ const id=e.target.value; state.userPicked=true; stop(); state.activeId=id; $("recalcInfo").textContent=""; $("clearConfirm").innerHTML=""; render(); });
 
   function pickDefaultProfile(){
     if (state.userPicked || state.activeId!=="demo") return;
@@ -1105,9 +1221,15 @@ function demoRound(){
   const valCache={key:"", v:null};
   function analysis(force){
     const p=active(), real = p.demo ? [] : p.rounds;
-    const key=state.activeId+":"+real.length+":"+(real.length?real[real.length-1]:"")+":"+(real.length?real[0]:"");
-    if (force || valCache.key!==key){ valCache.key=key; valCache.v = real.length>=VAL.minRounds ? validate(real) : {status:"insufficient", n:real.length, need:VAL.minRounds}; valCache.at=Date.now(); }
-    return {p, real, v:valCache.v};
+    const key=state.activeId+":"+real.length+":"+(real.length?real[real.length-1]:"")+":"+(real.length?real[0]:"")+":"+(p.anomalies||0);
+    if (force || valCache.key!==key){
+      valCache.key=key;
+      valCache.v = real.length>=VAL.minRounds ? validate(real) : {status:"insufficient", n:real.length, need:VAL.minRounds};
+      valCache.wf = walkForward(real);
+      valCache.dq = dataQuality(real, p.anomalies||0);
+      valCache.at=Date.now();
+    }
+    return {p, real, v:valCache.v, wf:valCache.wf, dq:valCache.dq};
   }
   function renderDashboard(){
     pickDefaultProfileOnce();
@@ -1147,6 +1269,8 @@ function demoRound(){
     renderLast10(p, real);
     renderCash(p, real, v);
     renderVal(p, real, v);
+    const an=analysis(false);
+    renderHist(p, real); renderPerf(p, real, an.v, an.wf); renderDQ(p, real, an.dq); renderLog(p, real);
   }
   let pickedOnce=false;
   function pickDefaultProfileOnce(){ if (!pickedOnce && Object.keys(state.profiles).length){ pickedOnce=true; pickDefaultProfile(); } }
@@ -1242,6 +1366,7 @@ function demoRound(){
       await new Promise(r=>setTimeout(r,30));
       state.recalcRunning=false;
       const {real, v}=analysis(true);
+      recordAnalysis("recalcul", true);
       const ms=Math.round(performance.now()-t0);
       const sig=signalState(real,{demo:!!active().demo, anomalies:active().anomalies||0, validation:v});
       $("recalcInfo").textContent = `Recalculé à ${new Date().toLocaleTimeString("fr-FR")} · ${real.length} manche(s) réelle(s) · ${ms} ms · ${sig.title}`;
@@ -1253,6 +1378,114 @@ function demoRound(){
     btn.disabled=false; render();
   };
   try{ const sv=localStorage.getItem("aviator_view"); if (sv && VIEWS.includes(sv)) setTimeout(()=>go(sv,true),0); }catch(e){}
+
+
+  /* ---------- Star Bot: analysis log, quality, performance, actions ---------- */
+  const LOGMAX=300;
+  function recordAnalysis(reason, force){
+    const p=active(); if (p.demo || !p.rounds.length) return null;
+    const {real, v}=analysis(false);
+    const sig=signalState(real,{anomalies:p.anomalies||0, validation:v});
+    const e=Object.assign(logEntry(real, sig), {why:reason});
+    p.log = p.log || [];
+    const last=p.log[p.log.length-1];
+    if (!force && last && last.n===e.n && last.code===e.code) return null;   // nothing new to record
+    p.log.push(e); if (p.log.length>LOGMAX) p.log.splice(0, p.log.length-LOGMAX);
+    persist(state.activeId);
+    if (state.server) apiCall("POST","/api/log",{profile:state.activeId, entry:e}).catch(err=>serverFail(err,"Enregistrement de l'analyse"));
+    return e;
+  }
+  const pct=x=>Number.isFinite(x)?(x*100).toFixed(1).replace(".",",")+" %":"—";
+  function renderHist(p, real){
+    const el=$("histBody");
+    if (p.demo || !real.length){ el.innerHTML='<p class="unavail">Données insuffisantes</p><p class="note">'+(p.demo?"Profil Démo fictif : non analysé.":"Aucune manche réelle importée.")+'</p>'; return; }
+    const w=windowStats(real);
+    el.innerHTML='<div class="tablewrap"><table><thead><tr><th>Fenêtre</th><th>Manches</th><th>Moyenne</th><th>Médiane</th><th>≥ 2×</th><th>≥ 5×</th><th>Max</th></tr></thead><tbody>'
+      + w.map(r=>`<tr><td>${r.k===Infinity?"Tout":r.k+" dern."}</td><td>${r.n}</td><td>${fmtX(r.mean)}</td><td>${fmtX(r.median)}</td><td>${pct(r.ge2)}</td><td>${pct(r.ge5)}</td><td>${fmtX(r.max)}</td></tr>`).join("")
+      + `<tr><td>Théorie</td><td>—</td><td>—</td><td>${fmtX(RTP*2)}</td><td>${pct(theoGE(2))}</td><td>${pct(theoGE(5))}</td><td>—</td></tr></tbody></table></div>`
+      + '<p class="note">Tendances observées : elles décrivent le passé. Sur les petites fenêtres, les écarts avec la théorie sont surtout dus au hasard et ne prédisent pas la manche suivante.</p>';
+  }
+  function renderPerf(p, real, v, wf){
+    const el=$("perfBody");
+    if (p.demo || wf.status!=="done"){ el.innerHTML='<p class="unavail">Données insuffisantes</p><p class="note">'+(p.demo?"Profil Démo fictif : aucun test.":"Il faut au moins "+wf.need+" manches réelles pour comparer les estimations aux résultats. Vous en avez "+real.length+".")+'</p>'; return; }
+    const ci=wf.diffCI.map(x=>x.toFixed(4).replace(".",",")).join(" ; ");
+    el.innerHTML = `<p class="verdict ${wf.better?"yes":"no"}">${wf.better?"Estimation meilleure que la théorie — à confirmer":"Aucune amélioration sur la théorie"}</p>
+      <p class="note">Test prospectif : avant chacune des ${wf.scored} manches, la chance d'atteindre 2× a été estimée avec les ${wf.win} manches précédentes seulement, puis comparée à ce qui s'est réellement passé.</p>
+      <div class="kpis">
+        <div><span>Score de Brier, estimation</span><b>${wf.brierModel.toFixed(4).replace(".",",")}</b></div>
+        <div><span>Score de Brier, théorie</span><b>${wf.brierTheory.toFixed(4).replace(".",",")}</b></div>
+        <div><span>Gain de précision</span><b class="${wf.skill>0?"yes-g":"no-r"}">${(wf.skill*100).toFixed(2).replace(".",",")} %</b></div>
+        <div><span>Écart (IC 95 %)</span><b>[${ci}]</b></div>
+        <div><span>Estimation moyenne ≥ 2×</span><b>${pct(wf.meanEstimate)}</b></div>
+        <div><span>Réalisé ≥ 2×</span><b>${pct(wf.observedRate)}</b></div>
+      </div>
+      <p class="note">Plus le score de Brier est bas, meilleure est l'estimation. Un gain négatif ou nul veut dire que l'historique n'aide pas à prévoir.</p>
+      <p class="note"><b>Validation des règles de mise :</b> ${v.status==="done" ? (v.edge?"un avantage à confirmer a été observé (voir Strategy).":"aucun avantage démontré sur "+v.testN+" manches de test (voir Strategy).") : "possible dès "+VAL.minRounds+" manches."}</p>`;
+  }
+  function renderDQ(p, real, dq){
+    const pill=$("dqPill");
+    if (p.demo){ pill.className="pill"; pill.textContent="Démo"; $("dqBody").innerHTML='<li><span class="ic">–</span><span><b>Profil Démo</b><span class="d">Données fictives générées par la page : jamais analysées.</span></span></li>'; return; }
+    pill.className="pill "+({bonne:"good","à vérifier":"warnp",douteuse:"badp"}[dq.level]||"");
+    pill.textContent="Qualité : "+dq.level;
+    $("dqBody").innerHTML = dq.items.map(it=>`<li><span class="ic ${it.ok?"ok":"ko"}">${it.ok?"✓":"!"}</span><span><b>${esc(it.label)}</b><span class="d">${esc(it.detail)}</span></span></li>`).join("")
+      + `<li><span class="ic">i</span><span><b>Sources</b><span class="d">${srcLine(p)}</span></span></li>`;
+  }
+  function renderLog(p, real){
+    const el=$("logBody");
+    if (p.demo){ el.innerHTML='<p class="note">Profil Démo : aucune analyse enregistrée.</p>'; return; }
+    const sc=scoreLog(p.log||[], real);
+    if (!sc.rows.length){ el.innerHTML='<p class="note">Aucune analyse enregistrée. Chaque ajout de manches, « Analyser » ou « Recalculer » en enregistre une ici.</p>'; return; }
+    const rows=sc.rows.slice().reverse().slice(0,30).map(e=>{
+      const t=new Date(e.at).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"});
+      const nxt = e.next==null ? "manche suivante : pas encore importée" : `manche suivante : ${fmtX(e.next)} <span class="${e.next>=2?"yes-g":"no-r"}">${e.next>=2?"≥ 2×":"< 2×"}</span>`;
+      return `<li><span class="lt">${t} · ${e.n} manches · ${esc(e.why||"")}</span><span class="ls">${esc(e.title)}</span><span class="ln">Fréquence ≥ 2× (100 dern.) : ${e.p2==null?"—":pct(e.p2)} · théorie ${pct(theoGE(2))}</span><span class="ln">${nxt}</span></li>`;
+    }).join("");
+    el.innerHTML = `<p class="note">${sc.rows.length} analyse(s) enregistrée(s). Après ${sc.scored} d'entre elles, la manche suivante est connue : ${sc.hits} ont atteint 2× (${sc.scored?pct(sc.hits/sc.scored):"—"}), pour une fréquence estimée moyenne de ${pct(sc.meanEstimate)} et une théorie de ${pct(sc.theory)}.</p><ol class="loglist">${rows}</ol>`;
+  }
+  $("importBtn").onclick=()=>{ go("history"); setTimeout(()=>{ const b=$("bulk"); b.scrollIntoView({block:"center"}); b.focus(); },60); };
+  $("analyzeBtn").onclick=()=>{
+    const p=active();
+    if (p.demo || !p.rounds.length){ $("recalcInfo").textContent="Rien à analyser : "+(p.demo?"le profil Démo est fictif.":"aucune manche réelle dans ce profil."); return; }
+    const t0=performance.now(); const {real}=analysis(true); const e=recordAnalysis("analyse", true);
+    $("recalcInfo").textContent=`Analyse enregistrée à ${new Date().toLocaleTimeString("fr-FR")} · ${real.length} manche(s) réelle(s) · ${Math.round(performance.now()-t0)} ms · ${e?e.title:""}`;
+    render(); $("sigPanel").scrollIntoView({block:"start"});
+  };
+  $("clearBtn").onclick=()=>{
+    const p=active(), n=p.rounds.length, box=$("clearConfirm");
+    box.innerHTML=`<div class="confirm">${p.demo?"Régénérer les données fictives du profil Démo ?":"Effacer les "+n+" manche(s) et l'historique des analyses du profil « "+esc(p.name)+" » ? Le profil est conservé."} <button class="primary" id="clearYes">Effacer</button><button id="clearNo">Garder</button></div>`;
+    $("clearNo").onclick=()=>{ box.innerHTML=""; };
+    $("clearYes").onclick=async ()=>{
+      box.innerHTML="";
+      if (p.demo){ stop(); demo.rounds=[]; demo.src=[]; for (let i=0;i<180;i++){ demo.rounds.push(demoRound()); demo.src.push("d"); } demo.updatedAt=Date.now(); render(); return; }
+      if (state.server){
+        try{ await apiCall("POST","/api/rounds/clear",{profile:state.activeId}); await loadServer(true); }
+        catch(e){ $("recalcInfo").textContent=serverFail(e,"Effacement"); return; }
+      } else { p.rounds=[]; p.src=[]; p.log=[]; p.anomalies=0; p.updatedAt=Date.now(); persist(state.activeId); }
+      logEvent({source:"Effacement", added:0, ignored:0, dup:0, error:null, note:n+" manche(s) effacée(s) · « "+p.name+" »"});
+      $("recalcInfo").textContent=n+" manche(s) effacée(s).";
+      render();
+    };
+  };
+  function exportData(){
+    const {p, real, v, wf, dq}=analysis(true);
+    const sig=signalState(real,{demo:!!p.demo, anomalies:p.anomalies||0, validation:v});
+    return {app:"Aviator Star Bot", generatedAt:new Date().toISOString(), profile:p.name, demo:!!p.demo, liveSource:null,
+      note:"Statistiques sur des manches importées. Aucune prédiction, aucune garantie de gain.",
+      rounds: real.map((x,i)=>({n:i+1, multiplier:x, source:SRC[p.src[i]]||SRC.m})),
+      signal:{code:sig.code, title:sig.title, why:sig.why}, stats:stats(real), windows:windowStats(real).map(w=>Object.assign({}, w, {k:w.k===Infinity?"all":w.k})),
+      fit:chiSquareFit(real), dataQuality:dq, validation:v, prospective:wf, signalHistory:scoreLog(p.log||[], real).rows};
+  }
+  $("exportResBtn").onclick=async ()=>{
+    const p=active();
+    if (p.demo || !p.rounds.length){ $("recalcInfo").textContent="Rien à exporter : "+(p.demo?"le profil Démo est fictif.":"aucune manche réelle."); return; }
+    const data=JSON.stringify(exportData(), (k,x)=>typeof x==="number"&&!Number.isFinite(x)?null:x, 2);
+    const name="star-bot-"+(p.name||"profil").replace(/[^\w-]+/g,"_")+"-"+new Date().toISOString().slice(0,10)+".json";
+    try{
+      if (state.dl) await state.dl.save({filename:name, data});
+      else { const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([data],{type:"application/json"})); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },500); }
+      $("recalcInfo").textContent="Résultats exportés : "+name;
+    }catch(e){ $("recalcInfo").textContent="Export annulé ou impossible sur cet appareil."; }
+  };
 
   /* ---------- server + Telegram panel ---------- */
   let tgBusy=false, tgMsg="", tgMsgBad=false, tgLink=null;

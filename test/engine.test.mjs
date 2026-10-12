@@ -50,3 +50,35 @@ test("signaux : chaque état", ()=>{
   assert.equal(E.signalState(fairRounds(100,5), {anomalies:30}).code,"risk");
   assert.equal(E.signalState(fairRounds(3000,11), {}).code,"none");
 });
+
+/* ---- prospective evaluation, data quality, analysis log ---- */
+test("prévisions vs résultats : sur des données conformes, l'estimation ne bat pas la théorie", ()=>{
+  let better=0;
+  for (let s=1;s<=30;s++){ const w=E.walkForward(fairRounds(1500, s*31)); assert.equal(w.status,"done"); if (w.better) better++; assert.ok(w.skill<0.01, "skill "+w.skill); }
+  assert.ok(better<=2, "faux avantages : "+better);
+});
+test("prévisions vs résultats : une vraie dérive est détectée", ()=>{
+  // the true chance of reaching 2x alternates between 80 % and 15 % in blocks of 300 rounds
+  const r=rng(77), a=[]; for (let i=0;i<3000;i++){ const hi=Math.floor(i/300)%2===0; a.push(r() < (hi?0.8:0.15) ? 2+r()*3 : 1+r()*0.9); }
+  const w=E.walkForward(a); assert.equal(w.better,true); assert.ok(w.skill>0.05);
+});
+test("prévisions vs résultats : chiffres cohérents et sans regard vers l'avenir", ()=>{
+  const a=fairRounds(200, 5), w=E.walkForward(a); assert.equal(w.scored,170);
+  const b=a.slice(); b[199]=1000; const w2=E.walkForward(b);   // changing the last round must not change any earlier estimate
+  assert.ok(Math.abs(w.meanEstimate-w2.meanEstimate)<1e-12);
+  assert.equal(E.walkForward(fairRounds(40,1)).status,"insufficient");
+});
+test("qualité : données propres = bonne", ()=>{ const q=E.dataQuality(fairRounds(500,8),0); assert.equal(q.level,"bonne", JSON.stringify(q.items.filter(x=>!x.ok))); });
+test("qualité : données triées, doublons et illisibles détectés", ()=>{
+  const sorted=fairRounds(300,2).sort((x,y)=>x-y), q=E.dataQuality(sorted, 60);
+  assert.equal(q.level,"douteuse"); assert.ok(q.items.find(x=>x.label==="Ordre" && !x.ok)); assert.ok(q.items.find(x=>x.label==="Valeurs illisibles" && !x.ok));
+  assert.ok(E.dataQuality([1.5,2,2,2,3],0).items.find(x=>x.label==="Valeurs répétées" && !x.ok));
+  assert.equal(E.dataQuality([1.2,3],0).level,"insuffisante");
+});
+test("fenêtres : 10/50/100/500/tout", ()=>{ const w=E.windowStats(fairRounds(120,3)); assert.deepEqual(w.map(x=>x.n),[10,50,100,120,120]); });
+test("historique des analyses : résultat suivant relié à l'estimation", ()=>{
+  const a=fairRounds(60,4), sig={code:"history",title:"ANALYSE HISTORIQUE DISPONIBLE"};
+  const e1=E.logEntry(a.slice(0,40), sig, 1), e2=E.logEntry(a, sig, 2);
+  assert.equal(e1.n,40); assert.ok(e1.p2>0 && e1.p2<1);
+  const s=E.scoreLog([e1,e2], a); assert.equal(s.rows[0].next, a[40]); assert.equal(s.rows[1].next, null); assert.equal(s.scored,1);
+});

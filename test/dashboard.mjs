@@ -14,7 +14,7 @@ const results = []; let failed = 0;
 const check = (name, cond, info="") => { if (cond) results.push("ok   - " + name); else { failed++; results.push("FAIL - " + name + (info ? " :: " + info : "")); } };
 
 const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
-const p = await b.newPage({ viewport: { width: 390, height: 844 } });
+const p = await b.newPage({ viewport: { width: 390, height: 844 }, acceptDownloads: true });
 const errs = []; p.on("pageerror", e => errs.push(e.message));
 const T = async s => ((await p.textContent(s)) || "").trim().replace(/\s+/g, " ");
 const go = async v => { await p.click(`#nav button[data-go="${v}"]`); await p.waitForTimeout(150); };
@@ -31,6 +31,13 @@ check("vide : graphique sans barre", (await p.getAttribute("#trendChart", "data-
 check("vide : cashout sans conseil", /Aucun multiplicateur conseillé/.test(await T("#cashBody")));
 check("high rollers : Données indisponibles", /Données indisponibles/.test(await T('[aria-label="Top High Rollers"]')));
 check("aucun pourcentage de confiance inventé", !/confiance\s*:?\s*\d|85 ?%/i.test(await T("#main")));
+check("titre : Aviator Star Bot", (await p.title())==="Aviator Star Bot" && /STAR BOT SIGNAL/.test(await T("#sigPanel")));
+check("vide : Historical Analytics insuffisant", /Données insuffisantes/.test(await T("#histBody")));
+check("vide : Model Performance insuffisant", /Données insuffisantes/.test(await T("#perfBody")));
+check("vide : Data Quality signale la démo", /Démo/.test(await T("#dqPill")));
+check("vide : Signal History vide", /aucune analyse/i.test(await T("#logBody")));
+await p.click("#analyzeBtn"); check("Analyser sans données : message clair", /Rien à analyser/.test(await T("#recalcInfo")));
+await p.click("#exportResBtn"); check("Exporter sans données : message clair", /Rien à exporter/.test(await T("#recalcInfo")));
 
 /* 2. navigation */
 for (const v of ["history", "analytics", "strategy", "settings", "dashboard"]) { await go(v); const vis = await visibleViews(); check("menu : " + v + " seule vue affichée", vis.length === 1 && vis[0] === v, vis.join(",")); }
@@ -50,6 +57,13 @@ check("graphique = données importées (dernière valeur)", Number(await p.getAt
 const rows = await p.$$eval("#last10 li .rv", els => els.map(e => e.textContent));
 check("10 dernières : 10 lignes, plus récente en premier", rows.length === 10 && rows[0] === fmt(a25[24]) + "×" && rows[9] === fmt(a25[15]) + "×", rows.join(" "));
 check("10 dernières : source affichée", /saisie manuelle/.test(await T("#last10")));
+check("ajout : analyse enregistrée automatiquement", (await p.$$("#logBody .loglist li")).length===1, await T("#logBody"));
+check("ajout : qualité insuffisante (<30)", /insuffisante/.test(await T("#dqPill")), await T("#dqPill"));
+await p.click("#analyzeBtn"); await p.waitForTimeout(150);
+check("Analyser : nouvelle entrée enregistrée", (await p.$$("#logBody .loglist li")).length===2 && /Analyse enregistrée/.test(await T("#recalcInfo")));
+await p.click("#importBtn"); await p.waitForTimeout(200);
+check("Importer l'historique : ouvre History sur la zone de collage", (await visibleViews())[0]==="history" && await p.evaluate(()=>document.activeElement && document.activeElement.id==="bulk"));
+await go("dashboard");
 
 /* 4. 120 rounds: historical analysis available, no validation yet */
 await go("history"); await p.fill("#bulk", fair(95, 2).map(fmt).join(" ")); await p.click("#addBulk"); await p.waitForTimeout(200); await go("dashboard");
@@ -59,7 +73,8 @@ await go("strategy");
 check("120 manches : validation refusée (200 requises)", /Encore 80/.test(await T("#valBody")), await T("#valBody"));
 
 /* 5. 1000 rounds: validation runs, no edge on fair data */
-await go("history"); await p.fill("#bulk", fair(880, 3).map(fmt).join(" ")); await p.click("#addBulk"); await p.waitForTimeout(300);
+const a880=fair(880, 3), a1000last=a880[879];
+await go("history"); await p.fill("#bulk", a880.map(fmt).join(" ")); await p.click("#addBulk"); await p.waitForTimeout(300);
 await go("dashboard"); await p.click("#recalcBtn"); await p.waitForTimeout(500);
 check("1000 manches : recalcul affiché", /Recalculé à .* 1000 manche/.test(await T("#recalcInfo")), await T("#recalcInfo"));
 check("1000 manches : AUCUN AVANTAGE STATISTIQUE DÉTECTÉ", (await T("#sigTitle")) === "AUCUN AVANTAGE STATISTIQUE DÉTECTÉ", await T("#sigTitle"));
@@ -70,6 +85,15 @@ check("validation : faux signaux + référence + théorie", /Faux signaux/.test(
 await go("dashboard");
 check("graphique limité aux 100 dernières", (await p.getAttribute("#trendChart", "data-n")) === "100");
 check("cashout : toujours aucun conseil", /Aucun multiplicateur conseillé/.test(await T("#cashBody")));
+check("Model Performance : aucune amélioration sur données conformes", /Aucune amélioration sur la théorie/.test(await T("#perfBody")), (await T("#perfBody")).slice(0,120));
+check("Model Performance : test prospectif sur 970 manches", /avant chacune des 970 manches/.test(await T("#perfBody")));
+check("Historical Analytics : 5 fenêtres + théorie", (await p.$$("#histBody tbody tr")).length===6);
+check("Data Quality : bonne", /bonne/.test(await T("#dqPill")), await T("#dqBody"));
+check("Signal History : manche suivante reliée aux anciennes analyses", /manche suivante : \d/.test(await T("#logBody")));
+const [dl] = await Promise.all([p.waitForEvent("download"), p.click("#exportResBtn")]);
+const exp = JSON.parse(readFileSync(await dl.path(), "utf8"));
+check("Exporter : JSON complet et honnête", exp.rounds.length===1000 && exp.liveSource===null && exp.signal.code==="none" && exp.validation.status==="done" && exp.prospective.status==="done" && exp.signalHistory.length>=3, JSON.stringify({n:exp.rounds.length, code:exp.signal.code}));
+check("Exporter : valeurs identiques aux données importées", exp.rounds[999].multiplier===a1000last, exp.rounds[999].multiplier+" vs "+a1000last);
 
 /* 6. suspicious data -> RISQUE ÉLEVÉ */
 await go("settings"); await p.fill("#newProf", "Données triées"); await p.click("#addProf"); await p.waitForTimeout(150);
@@ -77,6 +101,14 @@ await go("history"); await p.fill("#bulk", fair(150, 9).map(v => fmt(Math.min(v,
 await go("dashboard");
 check("données faussées : RISQUE ÉLEVÉ", (await T("#sigTitle")) === "RISQUE ÉLEVÉ", await T("#sigTitle"));
 check("données faussées : marché = écart fort", (await T("#cMkt")) === "Écart fort");
+check("données faussées : qualité douteuse ou à vérifier", /douteuse|à vérifier/.test(await T("#dqPill")), await T("#dqPill"));
+/* clear test data: only the active profile is emptied */
+await p.click("#clearBtn"); await p.click("#clearNo");
+check("Effacer : annulation conserve les données", (await T("#cTot"))==="150");
+await p.click("#clearBtn"); await p.click("#clearYes"); await p.waitForTimeout(150);
+check("Effacer : profil vidé", (await T("#cTot"))==="Données insuffisantes" && /aucune analyse/i.test(await T("#logBody")));
+await p.selectOption("#profSel", { index: 0 }); await p.waitForTimeout(150);
+check("Effacer : l'autre profil est intact", (await T("#cTot"))==="1000", await T("#cTot"));
 
 /* 7. demo profile never feeds the dashboard */
 await p.selectOption("#profSel", "demo"); await p.waitForTimeout(150);

@@ -17,7 +17,7 @@ log("10 dernières (erreur)", await T("#last10"));
 await p.fill("#keyIn",KEY); await p.click("#keyBtn"); await p.waitForTimeout(800);
 log("après bonne clé", (await p.isVisible("#keyPanel"))+" · "+await T("#srvPill"));
 log("Telegram", await T("#tgPill"));
-await p.click('#nav button[data-go="settings"]'); await p.click(".prof >> nth=1"); await p.waitForTimeout(200);
+const bwinVal=await p.$eval("#profSel", s=>[...s.options].find(o=>o.text.startsWith("Bwin soir")).value); await p.selectOption("#profSel", bwinVal); await p.waitForTimeout(200);
 log("profil serveur", await T("#profName")+" · "+await T("#mixPill"));
 await p.click('#nav button[data-go="history"]'); await p.fill("#oneVal","2,75"); await p.press("#oneVal","Enter"); await p.waitForTimeout(800);
 log("après saisie", await T("#mixPill"));

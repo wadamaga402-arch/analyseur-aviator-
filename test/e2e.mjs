@@ -31,6 +31,7 @@ const tgServer = http.createServer((req, res) => {
 await new Promise(r => tgServer.listen(TG_PORT, "127.0.0.1", r));
 
 /* ---- local Cloudflare runtime ---- */
+try { await fetch(BASE + "/api/health"); console.error("Le port " + W_PORT + " est déjà utilisé par un ancien serveur de test : lancez sh scripts/stop-test-servers.sh"); process.exit(2); } catch {}
 rmSync(ROOT + ".wrangler/state", { recursive: true, force: true });
 writeFileSync(ROOT + ".dev.vars", `BOT_TOKEN=${BOT_TOKEN}\nADMIN_KEY=${ADMIN_KEY}\nTG_API=http://127.0.0.1:${TG_PORT}\n`);
 const wr = spawn("npx", ["wrangler", "dev", "--port", String(W_PORT), "--ip", "127.0.0.1"], { cwd: ROOT, env: { ...process.env, CI: "1", WRANGLER_SEND_METRICS: "false" } });
@@ -55,7 +56,7 @@ const tgUpdate = (text, chat = CHAT, sec = secret) => fetch(BASE + "/telegram/we
 const lastSent = () => [...calls].reverse().find(c => c.method === "sendMessage");
 const settle = () => new Promise(r => setTimeout(r, 300));
 
-await step("le site est servi", async () => { const t = await (await fetch(BASE + "/")).text(); assert.match(t, /Analyseur/); assert.match(t, /<!doctype html>/i); });
+await step("le site est servi", async () => { const t = await (await fetch(BASE + "/")).text(); assert.match(t, /Star Bot/); assert.match(t, /<!doctype html>/i); });
 await step("santé : aucune source en direct déclarée", async () => { const h = await (await fetch(BASE + "/api/health")).json(); assert.equal(h.liveSource, null); assert.equal(h.botTokenSet, true); });
 await step("API refuse une mauvaise clé (401)", async () => { const r = await api("GET", "/api/state", null, "mauvaise-cle-xxxx"); assert.equal(r.status, 401); assert.match(r.data.error, /Clé/); });
 let pid;
@@ -104,6 +105,19 @@ await step("notification à chaque nouvelle manche ajoutée sur le site", async 
 });
 await step("doublons retirés côté serveur", async () => { const r = await api("POST", "/api/rounds", { profile: pid, values: [2.1, 7.85, 1.3, 4.44, 9.9], src: "c" }); assert.equal(r.data.added, 1); assert.equal(r.data.dropped, 4); });
 await step("annuler la dernière manche", async () => { await api("POST", "/api/rounds/undo", { profile: pid }); const p = (await api("GET", "/api/state")).data.profiles[pid]; assert.equal(p.rounds.at(-1), 4.44); });
+await step("historique des analyses enregistré et relu", async () => {
+  const r = await api("POST", "/api/log", { profile: pid, entry: { at: 1, n: 3, code: "insufficient", title: "DONNÉES INSUFFISANTES", p2: null, why: "analyse" } });
+  assert.equal(r.status, 200); const st = (await api("GET", "/api/state")).data.profiles[pid]; assert.equal(st.log.length, 1); assert.equal(st.log[0].n, 3);
+});
+await step("analyse invalide refusée (400)", async () => { const r = await api("POST", "/api/log", { profile: pid, entry: { n: "x" } }); assert.equal(r.status, 400); });
+await step("effacer les données d'un profil (manches + analyses)", async () => {
+  const other = (await api("POST", "/api/profiles", { name: "Test à effacer" })).data.id;
+  await api("POST", "/api/rounds", { profile: other, values: [1.5, 2.5, 3.5], src: "m" });
+  await api("POST", "/api/log", { profile: other, entry: { n: 3, code: "insufficient", title: "X" } });
+  const r = await api("POST", "/api/rounds/clear", { profile: other }); assert.equal(r.status, 200);
+  const p = (await api("GET", "/api/state")).data.profiles[other]; assert.equal(p.rounds.length, 0); assert.equal(p.log.length, 0); assert.equal(p.name, "Test à effacer");
+  assert.ok((await api("GET", "/api/state")).data.profiles[pid].rounds.length > 0, "l'autre profil ne doit pas être touché");
+});
 await step("aucune commande de pari n'existe", async () => { assert.ok(!calls.some(c => /bet|pari/i.test(c.method))); });
 await step("déconnecter", async () => { await api("POST", "/api/telegram/disconnect"); const st = (await api("GET", "/api/state")).data.telegram; assert.equal(st.linked, false); assert.ok(calls.some(c => c.method === "deleteWebhook")); });
 

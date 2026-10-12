@@ -189,6 +189,65 @@ function signalState(a, opts){
   return {code:"none", title:"AUCUN AVANTAGE STATISTIQUE DÉTECTÉ", tone:"muted",
     why:"Sur "+n+" manches réelles, aucune des "+(v.combos||0)+" règles testées n'a battu le hasard hors échantillon. C'est le résultat attendu pour un jeu à tirages indépendants."};
 }
+/* ---- prospective check: estimates made with past rounds only, scored against the round that followed ---- */
+function walkForward(a, opts){
+  const o=opts||{}, win=o.win||100, start=o.start||30, m=o.m||2, prior=10;
+  const n=a.length, need=start+20;
+  if (n<need) return {status:"insufficient", n, need};
+  const pt=theoGE(m);
+  let c=0; for (let j=Math.max(0,start-win);j<start;j++) if (a[j]>=m) c++;
+  let sm=0, st=0, sd=0, sd2=0, k=0, sumP=0, hits=0;
+  for (let i=start;i<n;i++){
+    const from=Math.max(0,i-win), len=i-from;
+    const pe=(c+prior*pt)/(len+prior);           // empirical frequency of the last `win` rounds, lightly pulled toward theory
+    const y=a[i]>=m?1:0;
+    const bm=(pe-y)*(pe-y), bt=(pt-y)*(pt-y), d=bm-bt;
+    sm+=bm; st+=bt; sd+=d; sd2+=d*d; k++; sumP+=pe; hits+=y;
+    if (a[i]>=m) c++;                             // slide the window
+    if (i-win>=0 && a[i-win]>=m) c--;
+  }
+  const md=sd/k, se=Math.sqrt(Math.max(0,(sd2-k*md*md)/(k-1)))/Math.sqrt(k);
+  return {status:"done", n, scored:k, m, win, brierModel:sm/k, brierTheory:st/k, skill:1-sm/st,
+    diffCI:[md-1.96*se, md+1.96*se], meanEstimate:sumP/k, observedRate:hits/k, theory:pt,
+    better: md+1.96*se<0};                         // model better than theory only if the whole CI is below zero
+}
+/* ---- data quality checks ---- */
+function dataQuality(a, anomalies){
+  const n=a.length, bad=anomalies||0, items=[];
+  items.push({ok:n>=VAL.minRounds, label:"Quantité", detail: n+" manche(s) réelle(s) · "+quality(n).txt+(n<VAL.minRounds?" · validation possible dès "+VAL.minRounds:"")});
+  const badRate = n+bad ? bad/(n+bad) : 0;
+  items.push({ok:badRate<=0.05, label:"Valeurs illisibles", detail: bad+" ignorée(s)"+(n+bad?" ("+(badRate*100).toFixed(1).replace(".",",")+" %)":"")});
+  const fit=chiSquareFit(a);
+  items.push({ok: !fit || fit.p>=0.001, label:"Conformité au jeu", detail: fit ? "khi² = "+fit.chi.toFixed(1).replace(".",",")+" · p = "+(fit.p<0.001?fit.p.toExponential(1):fit.p.toFixed(3).replace(".",",")) : "test possible dès 30 manches"});
+  let run=1, maxRun=n?1:0; for (let i=1;i<n;i++){ run = a[i]===a[i-1] ? run+1 : 1; if (run>maxRun) maxRun=run; }
+  items.push({ok:maxRun<3, label:"Valeurs répétées", detail: maxRun>=3 ? "la même valeur apparaît "+maxRun+" fois de suite : copie en double ?" : "aucune répétition suspecte"});
+  let ge=0, le=0; for (let i=1;i<n;i++){ if (a[i]>=a[i-1]) ge++; if (a[i]<=a[i-1]) le++; }
+  const geR = n>1 ? ge/(n-1) : 0.5, leR = n>1 ? le/(n-1) : 0.5, sortedLike = geR>=0.9 || leR>=0.9;
+  items.push({ok: n<20 || !sortedLike, label:"Ordre", detail: n<20 ? "trop peu de manches pour juger" : (sortedLike ? "les valeurs semblent triées : l'ordre chronologique est peut-être perdu" : "ordre plausible ("+Math.round(geR*100)+" % de pas en hausse ou égaux)")});
+  const ones = n ? a.filter(v=>v<1.01).length/n : 0;
+  items.push({ok: n<50 || ones<0.12, label:"Manches à 1,00×", detail: n ? (ones*100).toFixed(1).replace(".",",")+" % (≈ 3 % attendus)" : "—"});
+  items.push({ok:true, label:"Direct", detail:"0 manche en direct : aucune source autorisée"});
+  const fails = items.filter(x=>!x.ok).length;
+  return {n, items, fails, level: n<30 ? "insuffisante" : (fails>=2 ? "douteuse" : (fails===1 ? "à vérifier" : "bonne"))};
+}
+function windowStats(a){
+  return [10,50,100,500,Infinity].map(k=>{ const x = k===Infinity ? a : a.slice(-k), s=stats(x);
+    return {k, n:s.n, mean:s.mean, median:s.median, ge2:s.n?s.ge2/s.n:NaN, ge5:geRate(x,5), max:s.max}; });
+}
+function logEntry(a, sig, at){
+  const last=a.slice(-100);
+  return {at: at||Date.now(), n:a.length, code:sig.code, title:sig.title, p2: last.length>=30 ? +geRate(last,2).toFixed(4) : null};
+}
+function scoreLog(log, a){
+  // what happened right after each recorded analysis (round number n+1), compared with the estimate stored at the time
+  let k=0, hits=0, sumP=0, sumT=0;
+  const rows = (log||[]).map(e=>{
+    const next = e.n < a.length ? a[e.n] : null;
+    if (next!=null && e.p2!=null){ k++; if (next>=2) hits++; sumP+=e.p2; sumT+=theoGE(2); }
+    return Object.assign({}, e, {next});
+  });
+  return {rows, scored:k, hits, meanEstimate: k?sumP/k:NaN, theory: theoGE(2)};
+}
 function demoRound(){
   // Fictitious round drawn from the theoretical crash distribution (RTP 97%)
   const u = Math.random();
@@ -196,4 +255,4 @@ function demoRound(){
   return Math.min(v, 10000);
 }
 
-export {RTP,CATS,catOf,theoGE,theoCat,toNum,validRound,parseList,parseCSV,median,wilson,stats,geRate,dependence,quality,SRC,normSrc,srcCounts,parseCaptureResult,dedupeOverlap,demoRound,gammaQ,chiSquareFit,VAL,streaksBelow2,valRules,simulate,validate,signalState};
+export {RTP,CATS,catOf,theoGE,theoCat,toNum,validRound,parseList,parseCSV,median,wilson,stats,geRate,dependence,quality,SRC,normSrc,srcCounts,parseCaptureResult,dedupeOverlap,demoRound,gammaQ,chiSquareFit,VAL,streaksBelow2,valRules,simulate,validate,signalState,walkForward,dataQuality,windowStats,logEntry,scoreLog};

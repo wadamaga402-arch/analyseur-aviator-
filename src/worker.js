@@ -204,7 +204,7 @@ async function fullState(env) {
   const out = {};
   for (const id of Object.keys(profiles)) {
     const d = await getRounds(env, id);
-    out[id] = Object.assign({}, profiles[id], { rounds: d.rounds, src: d.src });
+    out[id] = Object.assign({}, profiles[id], { rounds: d.rounds, src: d.src, log: (await store(env).read("log:" + id)) || [] });
   }
   return {
     ok: true, profiles: out,
@@ -240,7 +240,7 @@ async function api(req, env, ctx, path) {
     const profiles = await getProfiles(env);
     if (!profiles[del[1]]) return fail(404, "Profil introuvable.");
     delete profiles[del[1]];
-    await store(env).write("profiles", profiles); await store(env).remove("rounds:" + del[1]);
+    await store(env).write("profiles", profiles); await store(env).remove("rounds:" + del[1]); await store(env).remove("log:" + del[1]);
     const c = await getConfig(env); if (c.tgProfile === del[1]) await setConfig(env, { tgProfile: null });
     return json({ ok: true });
   }
@@ -253,6 +253,26 @@ async function api(req, env, ctx, path) {
     if (r.error) return fail(404, r.error);
     ctx.waitUntil(notifyNewRounds(env, b.profile, r.added, src).catch(() => {}));
     return json({ ok: true, added: r.added.length, dropped: r.dropped });
+  }
+  if (path === "/api/log" && req.method === "POST") {
+    const b = await readBody(req); const id = String(b.profile || ""); const e = b.entry || {};
+    const profiles = await getProfiles(env);
+    if (!profiles[id]) return fail(404, "Profil introuvable.");
+    const n = Math.floor(Number(e.n));
+    if (!Number.isFinite(n) || n < 0 || typeof e.code !== "string" || typeof e.title !== "string") return fail(400, "Analyse invalide.");
+    const entry = { at: Number(e.at) || Date.now(), n, code: e.code.slice(0, 20), title: e.title.slice(0, 80), p2: Number.isFinite(e.p2) ? e.p2 : null, why: String(e.why || "").slice(0, 20) };
+    const log = (await store(env).read("log:" + id)) || [];
+    log.push(entry); if (log.length > 300) log.splice(0, log.length - 300);
+    await store(env).write("log:" + id, log);
+    return json({ ok: true, count: log.length });
+  }
+  if (path === "/api/rounds/clear" && req.method === "POST") {
+    const b = await readBody(req); const id = String(b.profile || "");
+    const profiles = await getProfiles(env);
+    if (!profiles[id]) return fail(404, "Profil introuvable.");
+    await store(env).write("rounds:" + id, { rounds: [], src: "" }); await store(env).remove("log:" + id);
+    profiles[id].updatedAt = Date.now(); await store(env).write("profiles", profiles);
+    return json({ ok: true });
   }
   if (path === "/api/rounds/undo" && req.method === "POST") {
     const b = await readBody(req); const id = String(b.profile || "");
