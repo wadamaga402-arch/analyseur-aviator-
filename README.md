@@ -3,7 +3,7 @@
 Outil personnel de **statistiques** sur les multiplicateurs d'Aviator que vous saisissez ou importez.
 Indépendant : non affilié à Bwin ni à Spribe.
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/wadamaga402-arch/analyseur-aviator)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/wadamaga402-arch/analyseur-aviator-)
 
 ## Ce que fait le projet
 - **STAR BOT SIGNAL** : ANALYSE EN COURS · DONNÉES INSUFFISANTES · ANALYSE HISTORIQUE DISPONIBLE · AUCUN AVANTAGE STATISTIQUE DÉTECTÉ · RISQUE ÉLEVÉ (données douteuses) · avantage « à confirmer » seulement après validation. Chaque signal indique les données utilisées, la validation et la limite. Aucun signal BUY, aucun multiplicateur futur, aucune confiance inventée.
