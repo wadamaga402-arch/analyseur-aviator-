@@ -18,7 +18,7 @@ const errs = []; p.on("pageerror", e => errs.push(e.message));
 const T = async s => ((await p.textContent(s)) || "").replace(/\s+/g, " ").trim();
 const st = () => p.evaluate(() => { const s = window.__digitpro.state; return { connected: s.connected, account: s.account, running: s.running, stopping: s.stopping, session: s.session && { done: s.session.done, wins: s.session.wins, losses: s.session.losses, net: s.session.net, stopReason: s.session.stopReason }, trades: s.trades.map(t => ({ id: t.id, status: t.status, profit: t.profit })), analysis: s.analysis && { status: s.analysis.status, edge: s.analysis.edge }, digits: s.digits.length }; });
 const waitFor = async (fn, ms = 30000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await fn()) return true; await p.waitForTimeout(150); } return false; };
-const connect = async (token) => { await p.evaluate(() => document.querySelectorAll("details").forEach(d => d.open = true)); await p.fill("#apiUrl", "ws://127.0.0.1:18990"); await p.fill("#appId", "1089"); await p.fill("#token", token || ""); await p.click("#connectBtn"); await p.waitForTimeout(800); };
+const connect = async (token, appId) => { await p.evaluate(() => document.querySelectorAll("details").forEach(d => d.open = true)); await p.fill("#apiBase", "http://127.0.0.1:18990"); await p.fill("#appId", appId ?? "12345"); await p.fill("#token", token || ""); await p.click("#connectBtn"); await p.waitForTimeout(800); };
 const setParams = async o => { for (const [id, v] of Object.entries(o)) await p.fill("#" + id, String(v)); };
 const runSession = async () => { await p.click("#startBtn"); await waitFor(async () => { const s = await st(); return s.session && !s.running && !s.stopping; }, 60000); return st(); };
 
@@ -34,6 +34,10 @@ check("ticks réels reçus (historique 1000)", (await st()).digits >= 1000);
 await p.waitForTimeout(500);
 check("ticks en direct reçus", Number(await T("#ticks")) > 1000);
 check("contrats Digits détectés", /DIGITMATCH, DIGITDIFF, DIGITEVEN, DIGITODD/.test(await T("#journal")));
+check("sans compte : signal calculé, paiement signalé comme inconnu", await (async () => { await p.click("#sigBtn"); await waitFor(async () => (await st()).analysis?.status === "done"); return /inconnu sans compte/.test(await T("#sigWhy")) && /inconnu sans compte/.test(await T("#analysis")); })());
+check("sans compte : aucune proposition de prix demandée", (await ctrl("/stats")).proposals === 0);
+await connect("demo-token-123", "");
+check("jeton sans App ID : message clair, reste en lecture seule", /App ID manquant/.test(await T("#journal")) && !(await st()).account);
 await connect("mauvais-jeton");
 check("jeton refusé : message clair, pas de compte", /Jeton refusé/.test(await T("#journal")) && !(await st()).account);
 await connect("demo-token-123");
@@ -124,8 +128,8 @@ check("réel autorisé seulement avec avantage validé + confirmation", s.sessio
 /* automatic read-only signal on opening (real Deriv address redirected to the mock) */
 await ctrl("/reset");
 const p2 = await b.newPage({ viewport: { width: 390, height: 844 } }); const errs2 = []; p2.on("pageerror", e => errs2.push(e.message));
-await p2.routeWebSocket(/derivws\.com/, route => {   // pipe the real Deriv address to the local mock
-  const up = new WebSocket("ws://127.0.0.1:18990/websockets/v3?app_id=1089"), q = [];
+await p2.routeWebSocket(/api\.derivws\.com\/trading\/v1\/options\/ws\/public/, route => {   // pipe the real Deriv public address to the local mock
+  const up = new WebSocket("ws://127.0.0.1:18990/trading/v1/options/ws/public"), q = [];
   up.on("open", () => { for (const m of q.splice(0)) up.send(m); }); up.on("message", d => route.send(d.toString())); up.on("close", () => route.close());
   route.onMessage(m => up.readyState === 1 ? up.send(m) : q.push(m)); route.onClose(() => up.close());
 });

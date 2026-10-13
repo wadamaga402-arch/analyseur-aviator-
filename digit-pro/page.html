@@ -76,6 +76,7 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
 .bar{width:100%;height:5px;border-radius:9px;background:#26262d;overflow:hidden}.bar i{display:block;height:100%;background:var(--accent);transition:width .3s}
 .orb{width:74px;height:74px;border-radius:50%;display:grid;place-items:center;font-size:34px;font-weight:800}
 .orb.go{background:radial-gradient(circle,#2ee08a,#0f7a45);box-shadow:0 0 34px rgba(46,224,138,.55);color:#022012}
+.orb.maybe{background:radial-gradient(circle,#ffb35c,#b35a12);box-shadow:0 0 30px rgba(255,160,70,.45);color:#2a1300}.sigtitle.maybe{color:#ffb35c}
 .orb.no{background:radial-gradient(circle,#55555f,#2b2b33);box-shadow:0 0 24px rgba(160,160,170,.18);color:#d8d6d4}
 .sigtitle{font-size:26px;font-weight:800;letter-spacing:.04em;margin:0}
 .sigtitle.go{color:#2ee08a}.sigtitle.no{color:#d8d6d4}
@@ -108,11 +109,11 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
   </section>
   <section class="card" aria-label="Connexion Deriv">
     <h2>Connexion Deriv</h2>
-    <div class="field"><label for="token">Jeton API Deriv — seulement pour que le bot prenne les ordres (compte démo conseillé · droits Read + Trade). Le signal marche sans.</label><input id="token" type="password" autocomplete="off" placeholder="Collez votre jeton ici"></div>
+    <div class="field"><label for="token">Jeton Deriv (Personal Access Token, droit « trade ») — seulement pour que le bot prenne les ordres. Le signal marche sans. Il faut aussi l'App ID dans « Réglages avancés ».</label><input id="token" type="password" autocomplete="off" placeholder="Collez votre jeton ici"></div>
     <details><summary>Réglages avancés</summary>
       <div class="grid2" style="margin-top:8px">
-        <div class="field"><label for="appId">App ID</label><input id="appId" value="1089" inputmode="numeric"></div>
-        <div class="field"><label for="apiUrl">Serveur API</label><input id="apiUrl" value="wss://ws.derivws.com/websockets/v3"></div>
+        <div class="field"><label for="appId">App ID (developers.deriv.com)</label><input id="appId" placeholder="ex. 12345" autocomplete="off"></div>
+        <div class="field"><label for="apiBase">Serveur API</label><input id="apiBase" value="https://api.derivws.com"></div>
       </div>
     </details>
     <div class="grid2"><button class="b-start" id="connectBtn">Connecter mon compte</button><button class="b-sec" id="disconnectBtn">Déconnecter</button></div>

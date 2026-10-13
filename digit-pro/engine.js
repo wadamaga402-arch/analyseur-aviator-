@@ -72,11 +72,15 @@ export function backtest(digits, strategy, N, payoutRatio, from, to) {
   return { n, wins: w, losses: n - w, hit, hitCI: ci, roi: hit * payoutRatio - 1, roiCI: [ci[0] * payoutRatio - 1, ci[1] * payoutRatio - 1] };
 }
 export const VALID = { minDigits: 600, trainFrac: 0.6, windows: [25, 50, 100, 200], minTest: 300 };
+// payoutRatio = payout / stake quoted by Deriv. Without an account Deriv gives no quote: pass null, and the rule is
+// tested against a fair (no-margin) payout 1/p — "beats chance" only, which is necessary but NOT sufficient.
 export function validateStrategy(digits, strategy, payoutRatio) {
   const n = digits.length, s = STRATEGIES[strategy];
-  const theoEV = s.p * payoutRatio - 1;
-  if (!(payoutRatio > 1)) return { status: "error", reason: "Paiement Deriv inconnu : impossible d'évaluer la stratégie." };
-  if (n < VALID.minDigits) return { status: "insufficient", n, need: VALID.minDigits, theoEV };
+  const payoutKnown = payoutRatio != null;
+  if (!payoutKnown) payoutRatio = 1 / s.p;
+  const theoEV = payoutKnown ? s.p * payoutRatio - 1 : null;
+  if (!(payoutRatio > 1)) return { status: "error", reason: "Paiement Deriv invalide : impossible d'évaluer la stratégie." };
+  if (n < VALID.minDigits) return { status: "insufficient", n, need: VALID.minDigits, theoEV, payoutKnown };
   const split = Math.floor(n * VALID.trainFrac);
   let best = null;
   for (const N of VALID.windows) {
@@ -86,7 +90,7 @@ export function validateStrategy(digits, strategy, payoutRatio) {
   }
   const test = backtest(digits, strategy, best.N, payoutRatio, split, n);
   const edge = test.n >= VALID.minTest && test.roiCI[0] > 0;
-  return { status: "done", n, split, N: best.N, train: best.train, test, theoP: s.p, theoEV, payoutRatio, edge,
+  return { status: "done", n, split, N: best.N, train: best.train, test, theoP: s.p, theoEV, payoutRatio, payoutKnown, edge,
     fit: chiSquareDigits(digitCounts(digits)) };
 }
 

@@ -1,4 +1,5 @@
-// Digit Pro — client Deriv (API WebSocket officielle) et bot de session.
+// Digit Pro — client Deriv (nouvelle API officielle api.derivws.com, 2026) et bot de session.
+// Sans jeton : WebSocket public (ticks réels). Avec jeton : REST /accounts puis /otp → WebSocket démo ou réel.
 // Le jeton API n'est jamais enregistré ni écrit dans le journal : il reste en mémoire pendant la visite.
 import * as D from "./engine.js";
 
@@ -12,11 +13,13 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 class DerivClient {
   constructor(onEvent) { this.onEvent = onEvent; this.ws = null; this.reqId = 1; this.pending = new Map(); this.manual = false; this.retry = 0; this.listeners = new Set(); }
   get open() { return this.ws && this.ws.readyState === 1; }
-  connect(url, appId) {
-    this.url = url; this.appId = appId; this.manual = false;
+  // getUrl() is called on every (re)connection: an authenticated URL carries a one-time OTP valid 120 s.
+  async connect(getUrl) {
+    this.getUrl = getUrl; this.manual = false;
+    const url = await getUrl();
     return new Promise((resolve, reject) => {
       let ws;
-      try { ws = new WebSocket(`${url}?app_id=${encodeURIComponent(appId)}&l=FR`); } catch (e) { reject({ message: "Adresse du serveur invalide." }); return; }
+      try { ws = new WebSocket(url); } catch (e) { reject({ message: "Adresse du serveur invalide." }); return; }
       this.ws = ws; let opened = false;
       const to = setTimeout(() => { if (!opened) { try { ws.close(); } catch {} reject({ message: "Deriv ne répond pas (délai dépassé)." }); } }, 12000);
       ws.onopen = () => { opened = true; clearTimeout(to); this.retry = 0; clearInterval(this.ping); this.ping = setInterval(() => this.open && this.send({ ping: 1 }).catch(() => {}), 30000); resolve(); };
@@ -35,7 +38,7 @@ class DerivClient {
     const delay = Math.min(30000, 1000 * 2 ** this.retry++);
     this.onEvent("reconnecting", { delay });
     clearTimeout(this.rt);
-    this.rt = setTimeout(async () => { try { await this.connect(this.url, this.appId); this.onEvent("reconnected"); } catch { this.scheduleReconnect(); } }, delay);
+    this.rt = setTimeout(async () => { try { await this.connect(this.getUrl); this.onEvent("reconnected"); } catch { this.scheduleReconnect(); } }, delay);
   }
   close() { this.manual = true; clearTimeout(this.rt); clearInterval(this.ping); try { this.ws && this.ws.close(); } catch {} }
   handle(raw) {
@@ -61,7 +64,7 @@ class DerivClient {
 
 /* ================= state ================= */
 const S = {
-  client: null, token: "", account: null, balance: NaN, currency: "USD", connected: false,
+  client: null, token: "", appId: "", account: null, balance: NaN, currency: "USD", connected: false,
   symbol: "1HZ10V", pip: 2, digits: [], price: NaN, ticks: 0, lastUpdate: null, available: null,
   analysis: null, params: { ...D.DEFAULTS }, strategy: "matches",
   session: null, running: false, stopping: false, emergency: false, pendingBuy: null, trades: [], journal: [],
@@ -74,69 +77,93 @@ function onClientEvent(type, d) {
   if (type === "reconnecting") { log(`Nouvelle tentative de connexion dans ${Math.round(d.delay / 1000)} s…`); renderStatus("Reconnexion…"); }
   if (type === "reconnected") afterReconnect();
 }
+const API = () => ($("apiBase").value.trim() || "https://api.derivws.com").replace(/\/+$/, "");
+const WS_PUBLIC = () => API().replace(/^http/, "ws") + "/trading/v1/options/ws/public";
+// REST call with the token in the Authorization header (never in the URL, never logged)
+async function rest(method, path) {
+  let r;
+  try { r = await fetch(API() + path, { method, headers: { Authorization: "Bearer " + S.token, "Deriv-App-ID": S.appId } }); }
+  catch { throw { message: "Deriv injoignable depuis ce navigateur (réseau ou blocage)." }; }
+  let j = null; try { j = await r.json(); } catch {}
+  if (!r.ok) throw { code: r.status, message: (j && j.errors && j.errors[0] && j.errors[0].message) || "HTTP " + r.status };
+  return j;
+}
 async function connect() {
-  const url = $("apiUrl").value.trim() || "wss://ws.derivws.com/websockets/v3", appId = $("appId").value.trim() || "1089";
-  S.token = $("token").value.trim(); $("token").value = "";
+  const appId = $("appId").value.trim();
+  S.token = $("token").value.trim(); $("token").value = ""; S.appId = appId; S.account = null;
+  try { appId && localStorage.setItem("digitpro.appId", appId); } catch {}           // the App ID is not secret; the token is never stored
   if (S.client) S.client.close();
   S.client = new DerivClient(onClientEvent); S.client.on(onMessage);
   renderStatus("Connexion…");
+  if (S.token && !appId) { log("App ID manquant : créez une application sur developers.deriv.com (type PAT) et collez son App ID dans « Réglages avancés ». Connexion en lecture seule.", "bad"); S.token = ""; }
+  if (S.token) await authorize();
+  const getUrl = S.account
+    ? async () => { const r = await rest("POST", `/trading/v1/options/accounts/${encodeURIComponent(S.account.loginid)}/otp`); if (!r || !r.data || !r.data.url) throw { message: "Deriv n'a pas donné d'adresse de connexion." }; return r.data.url; }
+    : async () => WS_PUBLIC();
   try {
-    await S.client.connect(url, appId);
-    S.connected = true; log("Connecté au serveur Deriv.", "ok");
-    if (S.token) await authorize();
+    await S.client.connect(getUrl);
+    S.connected = true; log(S.account ? `Connecté au compte ${S.account.loginid} (${S.account.isVirtual ? "DÉMO" : "RÉEL"}).` : "Connecté à Deriv en lecture seule (ticks publics).", "ok");
+    if (S.account) { try { const b = await S.client.send({ balance: 1, subscribe: 1 }); if (b.balance) S.balance = Number(b.balance.balance); } catch {} }
     await loadMarket();
   } catch (e) { S.connected = false; log("Échec de connexion : " + (e.message || "erreur"), "bad"); }
   renderAll();
+  if (AUTO && S.connected) analyse();
 }
+// List the token's Options accounts (REST) and pick the one matching the chosen mode (demo first).
 async function authorize() {
   try {
-    const r = await S.client.send({ authorize: S.token });
-    const a = r.authorize;
-    S.account = { loginid: a.loginid, isVirtual: !!a.is_virtual, currency: a.currency, name: a.fullname || "" };
+    const r = await rest("GET", "/trading/v1/options/accounts");
+    const list = ((r && r.data) || []).filter(a => a.status !== "inactive");
+    const want = $("mode").value === "real" ? "real" : "demo";
+    const a = list.find(x => x.account_type === want) || list[0];
+    if (!a) throw { message: "aucun compte Options sur ce jeton" };
+    S.account = { loginid: a.account_id, isVirtual: a.account_type === "demo", currency: a.currency, name: "" };
     S.currency = a.currency || "USD"; S.balance = Number(a.balance);
-    log(`Compte ${a.loginid} autorisé (${a.is_virtual ? "DÉMO" : "RÉEL"}, ${S.currency}).`, "ok");
-    try { await S.client.send({ balance: 1, subscribe: 1 }); } catch {}
+    log(`Compte ${a.account_id} trouvé (${S.account.isVirtual ? "DÉMO" : "RÉEL"}, ${S.currency}).`, "ok");
   } catch (e) {
     S.account = null; S.token = "";
-    log("Jeton refusé par Deriv : " + (e.message || e.code) + ". Vérifiez qu'il a les droits Read et Trade.", "bad");
+    log("Jeton refusé par Deriv : " + (e.message || e.code) + ". Vérifiez le jeton (droit « trade ») et l'App ID.", "bad");
   }
 }
 function disconnect() { S.running = false; if (S.client) S.client.close(); S.connected = false; S.account = null; S.token = ""; log("Déconnecté."); renderAll(); }
 
 function onMessage(m) {
-  if (m.msg_type === "tick" && m.tick && m.tick.symbol === S.symbol) {
+  if (m.msg_type === "tick" && m.tick && (!m.tick.symbol || m.tick.symbol === S.symbol)) {
     S.pip = m.tick.pip_size ?? S.pip; S.price = m.tick.quote; S.ticks++; S.lastUpdate = new Date();
     S.digits.push(D.lastDigit(m.tick.quote, S.pip)); if (S.digits.length > 5000) S.digits.shift();
     renderDigits();
   }
   if (m.msg_type === "balance" && m.balance) { S.balance = Number(m.balance.balance); renderAccount(); }
 }
+// number of decimals of the quotes when Deriv does not send pip_size (trailing zeros are dropped in JSON numbers)
+function inferPip(prices) { let m = 0; for (const p of prices) { const t = String(p), i = t.indexOf("."); if (i >= 0) m = Math.max(m, t.length - i - 1); } return m || S.pip; }
 async function loadMarket() {
   if (!S.client || !S.client.open) return;
   try { await S.client.send({ forget_all: "ticks" }); } catch {}
   S.digits = []; S.ticks = 0; S.analysis = null;
   try {
     const h = await S.client.send({ ticks_history: S.symbol, count: 1000, end: "latest", style: "ticks", subscribe: 1 });
-    S.pip = h.pip_size ?? S.pip; S.digits = h.history.prices.map(p => D.lastDigit(p, S.pip)); S.ticks = S.digits.length; S.price = h.history.prices.at(-1); S.lastUpdate = new Date();
+    S.pip = h.pip_size ?? inferPip(h.history.prices); S.digits = h.history.prices.map(p => D.lastDigit(p, S.pip)); S.ticks = S.digits.length; S.price = h.history.prices.at(-1); S.lastUpdate = new Date();
     log(`${S.digits.length} ticks réels reçus pour ${S.symbol}.`, "ok");
   } catch (e) { log(`Ticks indisponibles pour ${S.symbol} : ${e.message}`, "bad"); }
   try {
-    const c = await S.client.send({ contracts_for: S.symbol, currency: S.currency, product_type: "basic" });
+    const c = await S.client.send({ contracts_for: S.symbol });
     const types = new Set((c.contracts_for.available || []).filter(x => x.contract_category === "digits").map(x => x.contract_type));
     S.available = types;
     log("Contrats Digits disponibles : " + ([...types].join(", ") || "aucun"), types.size ? "ok" : "bad");
-  } catch (e) { S.available = new Set(); log(`Contrats indisponibles pour ${S.symbol} : ${e.message}`, "bad"); }
+  } catch (e) { S.available = null; log(`Liste des contrats indisponible pour ${S.symbol} : ${e.message}`, "bad"); }
   renderAll();
 }
 
 /* ================= analysis ================= */
 async function quote(strategy, stake, barrier) {
   const s = D.STRATEGIES[strategy];
-  const req = { proposal: 1, amount: stake, basis: "stake", contract_type: s.type, currency: S.currency, duration: 1, duration_unit: "t", symbol: S.symbol };
+  const req = { proposal: 1, amount: stake, basis: "stake", contract_type: s.type, currency: S.currency, duration: 1, duration_unit: "t", underlying_symbol: S.symbol };
   if (s.needsDigit) req.barrier = String(barrier ?? 5);
   return (await S.client.send(req)).proposal;
 }
 const STAGES = ["Récupération des ticks réels…", "Demande du paiement à Deriv…", "Test hors échantillon…"];
+// Deriv only quotes prices (proposal) on an authenticated connection.
 const setStage = i => { if (S.analysis && S.analysis.status === "running") { S.analysis.stage = i; renderAnalysis(); renderSignal(); } };
 let analysing = false, again = false;
 async function analyse() {
@@ -151,15 +178,15 @@ async function analyseOnce() {
   $("analyseBtn").disabled = true; $("sigBtn").disabled = true; S.analysis = { status: "running", stage: 0 }; renderAnalysis(); renderSignal();
   try {
     const h = await S.client.send({ ticks_history: S.symbol, count: 5000, end: "latest", style: "ticks" }, 30000);
-    const digits = h.history.prices.map(p => D.lastDigit(p, h.pip_size ?? S.pip));
+    const digits = h.history.prices.map(p => D.lastDigit(p, h.pip_size ?? inferPip(h.history.prices)));
     setStage(1);
-    const pr = await quote(S.strategy, 1);
-    const ratio = Number(pr.payout) / Number(pr.ask_price);
+    const pr = S.account ? await quote(S.strategy, 1) : null;
+    const ratio = pr ? Number(pr.payout) / Number(pr.ask_price) : null;
     setStage(2);
     const v = D.validateStrategy(digits, S.strategy, ratio);
-    S.analysis = Object.assign(v, { at: new Date(), payout: Number(pr.payout), ask: Number(pr.ask_price), symbol: S.symbol, strategy: S.strategy,
+    S.analysis = Object.assign(v, { at: new Date(), payout: pr ? Number(pr.payout) : NaN, ask: pr ? Number(pr.ask_price) : NaN, symbol: S.symbol, strategy: S.strategy,
       now: v.status === "done" ? D.pick(S.strategy, digits.slice(-v.N)) : null });
-    log(`Analyse ${S.strategy} sur ${digits.length} ticks réels : ${S.analysis.edge ? "avantage observé hors échantillon (à confirmer)" : "aucun avantage démontré"}.`, S.analysis.edge ? "ok" : "");
+    log(`Analyse ${S.strategy} sur ${digits.length} ticks réels${pr ? "" : " (sans compte : paiement réel inconnu)"} : ${S.analysis.edge ? (pr ? "avantage observé hors échantillon (à confirmer)" : "mieux que le hasard, à vérifier avec le vrai paiement") : "aucun avantage démontré"}.`, S.analysis.edge ? "ok" : "");
   } catch (e) { S.analysis = { status: "error", reason: e.message || "erreur" }; log("Analyse impossible : " + (e.message || e.code), "bad"); }
   $("analyseBtn").disabled = false; $("sigBtn").disabled = false; renderAll();
 }
@@ -180,17 +207,23 @@ function renderSignal(msg) {
   if (a.status === "insufficient") { box.innerHTML = `<div class="orb no">…</div><p class="sigtitle no">PAS ASSEZ DE TICKS</p><p class="note">${a.n} reçus, ${a.need} nécessaires.</p>`; return; }
   const t = a.test, need = 1 / a.payoutRatio, r = x => pct(x);
   const what = a.now ? SHORT[a.strategy] + (a.now.barrier != null ? " " + a.now.barrier : "") : SHORT[a.strategy];
-  box.innerHTML = a.edge
+  const known = a.payoutKnown !== false;
+  box.innerHTML = a.edge && !known
+    ? `<div class="orb maybe">?</div><p class="sigtitle maybe" id="sigTitle">AVANTAGE POSSIBLE</p><p class="note">${esc(what)} fait mieux que le hasard sur des ticks jamais vus. Sans compte, Deriv ne donne pas son paiement : connectez le compte démo pour savoir si cela bat sa marge.</p>`
+    : a.edge
     ? `<div class="orb go">✓</div><p class="sigtitle go" id="sigTitle">${esc(what.toUpperCase())}</p><p class="note">Avantage observé sur des ticks jamais utilisés. À confirmer en démo : cela peut encore être du hasard.</p>`
-    : `<div class="orb no">✕</div><p class="sigtitle no" id="sigTitle">PAS DE SIGNAL</p><p class="note">${esc(what)} ne bat pas la marge de Deriv sur ce marché. Ne pas trader.</p>`;
+    : `<div class="orb no">✕</div><p class="sigtitle no" id="sigTitle">PAS DE SIGNAL</p><p class="note">${esc(what)} ${known ? "ne bat pas la marge de Deriv sur ce marché" : "ne fait pas mieux que le hasard (et Deriv paie moins que le hasard)"}. Ne pas trader.</p>`;
   const it = (k, txt) => `<li><i class="${k}">${k === "y" ? "✓" : k === "n" ? "✕" : "!"}</i><span>${txt}</span></li>`;
   const factors = [a.n >= 600, a.fit && a.fit.p < 0.05, t.hit > need, t.roiCI[0] > 0];
+  const payLine = known
+    ? it(a.theoEV >= 0 ? "y" : "n", `Paiement Deriv ${a.payout.toFixed(2)} pour ${a.ask.toFixed(2)} · il faut gagner ${r(need)} du temps (théorie : ${r(a.theoP)})`)
+    : it("w", `Paiement Deriv inconnu sans compte (Deriv ne donne ses prix qu'aux comptes connectés) · comparé au hasard : ${r(a.theoP)}`);
   why.innerHTML = `<h3>POURQUOI CE SIGNAL</h3><ul>
     ${it("y", `${a.n} vrais ticks de ${esc(a.symbol)} · ${a.at.toLocaleTimeString("fr-FR")}`)}
-    ${it(a.theoEV >= 0 ? "y" : "n", `Paiement Deriv ${a.payout.toFixed(2)} pour ${a.ask.toFixed(2)} · il faut gagner ${r(need)} du temps (théorie : ${r(a.theoP)})`)}
+    ${payLine}
     ${it(factors[1] ? "y" : "w", a.fit ? `Écart des chiffres : khi² p = ${a.fit.p.toFixed(3)} ${factors[1] ? "(déséquilibre)" : "(chiffres équilibrés)"}` : "Écart des chiffres : —")}
     ${it(factors[2] ? "y" : "n", `Réussite sur ticks jamais vus : ${r(t.hit)} sur ${t.n} cas`)}
-    ${it(factors[3] ? "y" : "n", `Rendement test : ${t.roi >= 0 ? "+" : "−"}${pct(Math.abs(t.roi))} [${r(t.roiCI[0])} ; ${r(t.roiCI[1])}]`)}
+    ${known ? it(factors[3] ? "y" : "n", `Rendement test : ${t.roi >= 0 ? "+" : "−"}${pct(Math.abs(t.roi))} [${r(t.roiCI[0])} ; ${r(t.roiCI[1])}]`) : it(factors[3] ? "y" : "n", `Écart au hasard sur le test : ${t.roi >= 0 ? "+" : "−"}${pct(Math.abs(t.roi))} [${r(t.roiCI[0])} ; ${r(t.roiCI[1])}] (avant la marge Deriv)`)}
     ${it(a.edge ? "y" : "w", `Critères remplis : ${factors.filter(Boolean).length} sur 4 · fenêtre ${a.N} ticks`)}
   </ul>`;
   why.hidden = false; go.hidden = false;
@@ -207,7 +240,8 @@ function startCheck() {
   if (!S.account) errs.push("Aucun compte autorisé : entrez un jeton API Deriv.");
   if (S.available && !S.available.has(D.STRATEGIES[S.strategy].type)) errs.push("Contrat non disponible sur ce marché.");
   if (S.digits.length < p.window) errs.push(`Il faut au moins ${p.window} ticks reçus (actuellement ${S.digits.length}).`);
-  const a = S.analysis, analysed = a && a.status === "done" && a.symbol === S.symbol && a.strategy === S.strategy;
+  const a0 = S.analysis, a = a0 && a0.payoutKnown === false ? Object.assign({}, a0, { edge: false }) : a0;   // no real payout → no validated edge
+  const analysed = a && a.status === "done" && a.symbol === S.symbol && a.strategy === S.strategy;
   if (mode === "demo") {
     if (S.account && !S.account.isVirtual) errs.push("Mode Démo choisi mais le compte connecté est RÉEL : connectez un jeton de compte démo.");
     if (!(analysed && a.edge) && !$("execTest").checked) errs.push("Aucun avantage validé : cochez « test technique en démo » pour lancer quand même en démo.");
@@ -287,7 +321,7 @@ function waitSettlement(trade) {
     const finish = poc => {
       if (!poc || !poc.is_sold || trade.status !== "open") return;
       trade.status = poc.status === "won" || Number(poc.profit) > 0 ? "won" : "lost";
-      trade.profit = Number(poc.profit); trade.exitDigit = poc.exit_tick_display_value != null ? D.lastDigit(poc.exit_tick_display_value, S.pip) : null;
+      trade.profit = Number(poc.profit); const ex = poc.exit_tick_display_value ?? poc.exit_spot; trade.exitDigit = ex != null ? D.lastDigit(ex, S.pip) : null;
       off && off(); S.waiting = null; resolve();
     };
     off = S.client.on(m => { if (m.msg_type === "proposal_open_contract" && m.proposal_open_contract && m.proposal_open_contract.contract_id === trade.id) finish(m.proposal_open_contract); });
@@ -300,7 +334,6 @@ async function reconcilePendingBuy() {
   const pb = S.pendingBuy;
   for (let i = 0; i < 60 && !S.client.open; i++) await sleep(500);
   if (!S.client.open) { stop("connexion perdue pendant un achat : vérifiez votre compte Deriv"); return null; }
-  if (S.token && !S.account) await authorize();
   try {
     const port = await S.client.send({ portfolio: 1 });
     const c = (port.portfolio.contracts || []).find(x => x.purchase_time >= pb.at - 5 && x.contract_type === pb.type);
@@ -314,10 +347,10 @@ async function reconcilePendingBuy() {
 }
 async function afterReconnect() {
   S.connected = true; log("Reconnecté à Deriv.", "ok");
-  if (S.token) { S.account = null; await authorize(); }
+  if (S.account) { try { await S.client.send({ balance: 1, subscribe: 1 }); } catch {} }
   try {
     const h = await S.client.send({ ticks_history: S.symbol, count: 1000, end: "latest", style: "ticks", subscribe: 1 });
-    S.digits = h.history.prices.map(p => D.lastDigit(p, h.pip_size ?? S.pip));
+    S.digits = h.history.prices.map(p => D.lastDigit(p, h.pip_size ?? inferPip(h.history.prices)));
   } catch {}
   if (S.waiting) S.waiting.resubscribe();
   renderAll();
@@ -357,14 +390,15 @@ function renderAnalysis() {
   if (a.status === "error") { el.innerHTML = `<p class="bad">Analyse impossible : ${esc(a.reason)}</p>`; return; }
   if (a.status === "insufficient") { el.innerHTML = `<p class="verdict">Données insuffisantes</p><p class="note">${a.n} ticks reçus, ${a.need} nécessaires.</p>`; return; }
   const t = a.test, r = x => pct(x), ci = c => `[${r(c[0])} ; ${r(c[1])}]`;
-  el.innerHTML = `<p class="verdict ${a.edge ? "okc" : "badc"}">${a.edge ? "Avantage observé hors échantillon — à confirmer" : "Stratégie refusée : aucun avantage démontré"}</p>
+  const known = a.payoutKnown !== false;
+  el.innerHTML = `<p class="verdict ${a.edge && known ? "okc" : a.edge ? "realc" : "badc"}">${a.edge && known ? "Avantage observé hors échantillon — à confirmer" : a.edge ? "Mieux que le hasard — paiement Deriv à vérifier avec un compte" : "Stratégie refusée : aucun avantage démontré"}</p>
     <dl class="kv">
       <dt>Données</dt><dd>${a.n} ticks réels de ${esc(a.symbol)} · ${a.at.toLocaleTimeString("fr-FR")}</dd>
-      <dt>Paiement Deriv</dt><dd>${a.payout.toFixed(2)} pour ${a.ask.toFixed(2)} misé (×${a.payoutRatio.toFixed(3)})</dd>
-      <dt>Probabilité théorique</dt><dd>${r(a.theoP)} · résultat moyen théorique ${a.theoEV >= 0 ? "+" : ""}${a.theoEV.toFixed(3)} par 1 misé</dd>
+      <dt>Paiement Deriv</dt><dd>${known ? `${a.payout.toFixed(2)} pour ${a.ask.toFixed(2)} misé (×${a.payoutRatio.toFixed(3)})` : "inconnu sans compte (Deriv ne donne ses prix qu'aux comptes connectés)"}</dd>
+      <dt>Probabilité théorique</dt><dd>${r(a.theoP)}${known ? ` · résultat moyen théorique ${a.theoEV >= 0 ? "+" : ""}${a.theoEV.toFixed(3)} par 1 misé` : ""}</dd>
       <dt>Entraînement</dt><dd>${a.split} premiers ticks · fenêtre choisie : ${a.N} ticks · réussite ${r(a.train.hit)}</dd>
       <dt>Test (jamais vu)</dt><dd>${t.n} transactions simulées · réussite ${r(t.hit)} ${ci(t.hitCI)}</dd>
-      <dt>Rendement test</dt><dd>${t.roi >= 0 ? "+" : ""}${(t.roi * 100).toFixed(1)} % par mise ${ci(t.roiCI)}</dd>
+      <dt>${known ? "Rendement test" : "Écart au hasard (test)"}</dt><dd>${t.roi >= 0 ? "+" : ""}${(t.roi * 100).toFixed(1)} % par mise ${ci(t.roiCI)}</dd>
       <dt>Conformité</dt><dd>${a.fit ? "khi² p = " + a.fit.p.toFixed(3) : "—"}</dd>
     </dl>
     <p class="note">${a.edge ? "Le rendement reste positif sur des ticks non utilisés pour choisir la règle. Cela peut encore venir du hasard : recommencez sur de nouveaux ticks." : "Sur les ticks de test, la règle ne bat pas la marge de Deriv. Le mode Réel reste bloqué ; un test technique est possible en démo."}</p>`;
@@ -411,7 +445,6 @@ const AUTO = !new URLSearchParams(location.search).has("manuel"), AUTO_SEC = 60;
 async function autoSignal() {
   log("Signal automatique : connexion à Deriv en lecture seule (aucun compte nécessaire).");
   await connect();
-  if (S.connected) analyse();
   setInterval(() => {
     if (!S.connected || S.running || S.stopping || document.hidden) return;
     if (S.analysis && S.analysis.status === "running") return;
@@ -423,6 +456,7 @@ async function autoSignal() {
 function init() {
   $("market").innerHTML = D.MARKETS.map(m => `<option value="${m.symbol}" ${m.symbol === S.symbol ? "selected" : ""}>${esc(m.label)}</option>`).join("");
   for (const [id, k] of [["pStake", "stake"], ["pMaxTrades", "maxTrades"], ["pTarget", "profitTarget"], ["pMaxLoss", "maxLoss"], ["pPause", "pauseSec"], ["pExposure", "maxExposure"], ["pWindow", "window"]]) $(id).value = D.DEFAULTS[k];
+  try { const id = localStorage.getItem("digitpro.appId"); if (id && !$("appId").value) $("appId").value = id; } catch {}
   $("connectBtn").onclick = connect; $("disconnectBtn").onclick = disconnect;
   $("market").onchange = e => { if (S.running) { e.target.value = S.symbol; log("Arrêtez la session avant de changer de marché.", "bad"); return; } S.symbol = e.target.value; renderAll(); loadMarket().then(() => { if (AUTO && S.connected) analyse(); }); };
   $("strategy").onchange = e => { if (S.running) { renderStrategies(); return; } S.strategy = e.target.value; renderAll(); };

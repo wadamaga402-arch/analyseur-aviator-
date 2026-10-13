@@ -45,3 +45,9 @@ test("avant achat : pire cas, contrat ouvert, solde", () => {
   assert.equal(D.canBuy({ done: 0, net: 0, open: false }, p, 0.5).ok, false);
   assert.equal(D.canBuy({ done: 0, net: 0, open: false }, p, 100).ok, true);
 });
+test("sans paiement connu : seulement « mieux que le hasard », signalé comme tel", () => {
+  const v = D.validateStrategy(fair(3000, 5), "even", null);
+  assert.equal(v.payoutKnown, false); assert.equal(v.theoEV, null); assert.equal(v.edge, false);
+  const r = rng(7), d = Array.from({ length: 3000 }, () => r() < 0.3 ? 4 : Math.floor(r() * 10));
+  const b = D.validateStrategy(d, "matches", null); assert.equal(b.payoutKnown, false); assert.equal(b.edge, true);
+});
