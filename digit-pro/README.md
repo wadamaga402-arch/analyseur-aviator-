@@ -29,7 +29,8 @@ Sur ordinateur : `npm install`, puis `npm run build:digit` → `digit-pro/dist/i
 | Mode | Démo |
 
 ## 4. Fonctionnement
-- **Écran Signal** (en haut) : choisissez Matches, Differs, Even ou Odd, puis « Obtenir le signal ». Le cercle orange suit les vraies étapes du calcul. Résultat : signal vert uniquement si le test hors échantillon montre un avantage, sinon « PAS DE SIGNAL ». La liste « Pourquoi ce signal » donne les vrais chiffres.
+- **Signal automatique, sans compte** : à l'ouverture, la page se connecte toute seule à Deriv en lecture seule et calcule le signal, puis le met à jour toutes les 60 s (et à chaque changement de contrat ou de marché). Le jeton n'est nécessaire que pour que le bot achète : Deriv refuse tout achat sans jeton. Ajoutez `?manuel` à l'adresse pour désactiver la connexion automatique.
+- **Écran Signal** (en haut) : choisissez Matches, Differs, Even ou Odd (ou « Actualiser le signal »). Le cercle orange suit les vraies étapes du calcul. Résultat : signal vert uniquement si le test hors échantillon montre un avantage, sinon « PAS DE SIGNAL ». La liste « Pourquoi ce signal » donne les vrais chiffres.
 - **Analyser** : 5 000 vrais ticks + le vrai paiement demandé à Deriv. Les 60 % les plus anciens servent à choisir la fenêtre, et les 40 % restants (jamais vus) servent au test. Une stratégie n'est « validée » que si le rendement hors échantillon reste positif avec un intervalle de confiance à 95 %, sur au moins 300 cas. Sinon : **Stratégie refusée**.
 - **Démo** : compte VRTC obligatoire. Sans avantage validé, il faut cocher « test technique en démo » pour vérifier le fonctionnement.
 - **Réel** : il faut un compte réel, un avantage validé, la case cochée et `REEL` tapé. Sinon le mode est bloqué.
@@ -54,4 +55,4 @@ Sur ordinateur : `npm install`, puis `npm run build:digit` → `digit-pro/dist/i
 
 ## 7. Rapport de tests (automatisés)
 - `node --test test/digit-engine.test.mjs` : **11/11** (tests statistiques, sur chiffres équitables ≤ 2 faux avantages sur 80, biais réel détecté, arrêts).
-- `node test/digit-pro.mjs` (Chromium + fausse API Deriv) : **38/38**. Couvre : connexion, ticks, contrats, jeton refusé, jeton jamais exposé, analyse refusée, blocages, arrêt après exactement 5, objectif, perte max, arrêt d'urgence, réponse d'achat perdue sans doublon, coupure pendant le règlement, mode réel conditionnel, écran Signal (PAS DE SIGNAL sur chiffres équitables, signal vert seulement avec avantage), affichage mobile 320 à 430 px.
+- `node test/digit-pro.mjs` (Chromium + fausse API Deriv) : **42/42**. Couvre : connexion, ticks, contrats, jeton refusé, jeton jamais exposé, analyse refusée, blocages, arrêt après exactement 5, objectif, perte max, arrêt d'urgence, réponse d'achat perdue sans doublon, coupure pendant le règlement, mode réel conditionnel, connexion et signal automatiques sans compte (aucun achat possible sans jeton), écran Signal (PAS DE SIGNAL sur chiffres équitables, signal vert seulement avec avantage), affichage mobile 320 à 430 px.

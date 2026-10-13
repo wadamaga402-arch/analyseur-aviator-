@@ -102,19 +102,20 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
     <div class="chips" id="sigChips" role="group" aria-label="Contrat"></div>
     <div class="sigbox" id="sigBox" aria-live="polite"></div>
     <div class="why" id="sigWhy" hidden></div>
-    <button class="b-an" id="sigBtn">Obtenir le signal</button>
+    <p class="note" id="sigAuto" style="text-align:center">Signal automatique · mis à jour toutes les 60 s · sans compte</p>
+    <button class="b-an" id="sigBtn">Actualiser le signal</button>
     <button class="b-ghost" id="sigGo" hidden>Ouvrir le bot</button>
   </section>
   <section class="card" aria-label="Connexion Deriv">
     <h2>Connexion Deriv</h2>
-    <div class="field"><label for="token">Jeton API Deriv (compte démo conseillé · droits Read + Trade)</label><input id="token" type="password" autocomplete="off" placeholder="Collez votre jeton ici"></div>
+    <div class="field"><label for="token">Jeton API Deriv — seulement pour que le bot prenne les ordres (compte démo conseillé · droits Read + Trade). Le signal marche sans.</label><input id="token" type="password" autocomplete="off" placeholder="Collez votre jeton ici"></div>
     <details><summary>Réglages avancés</summary>
       <div class="grid2" style="margin-top:8px">
         <div class="field"><label for="appId">App ID</label><input id="appId" value="1089" inputmode="numeric"></div>
         <div class="field"><label for="apiUrl">Serveur API</label><input id="apiUrl" value="wss://ws.derivws.com/websockets/v3"></div>
       </div>
     </details>
-    <div class="grid2"><button class="b-start" id="connectBtn">Se connecter</button><button class="b-sec" id="disconnectBtn">Déconnecter</button></div>
+    <div class="grid2"><button class="b-start" id="connectBtn">Connecter mon compte</button><button class="b-sec" id="disconnectBtn">Déconnecter</button></div>
     <div class="acct" id="acct"></div>
     <p class="note">Le jeton reste en mémoire pendant la visite. Il n'est jamais enregistré, affiché ni écrit dans le journal.</p>
   </section>

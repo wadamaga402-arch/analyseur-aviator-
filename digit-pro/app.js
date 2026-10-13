@@ -138,7 +138,14 @@ async function quote(strategy, stake, barrier) {
 }
 const STAGES = ["Récupération des ticks réels…", "Demande du paiement à Deriv…", "Test hors échantillon…"];
 const setStage = i => { if (S.analysis && S.analysis.status === "running") { S.analysis.stage = i; renderAnalysis(); renderSignal(); } };
+let analysing = false, again = false;
 async function analyse() {
+  if (analysing) { again = true; return; }
+  analysing = true;
+  try { await analyseOnce(); } finally { analysing = false; }
+  if (again) { again = false; analyse(); }
+}
+async function analyseOnce() {
   if (!S.connected) { log("Connectez-vous d'abord à Deriv.", "bad"); renderSignal("Connectez-vous d'abord à Deriv (section Connexion)."); return; }
   if (S.available && !S.available.has(D.STRATEGIES[S.strategy].type)) { log("Ce contrat n'est pas proposé sur ce marché.", "bad"); return; }
   $("analyseBtn").disabled = true; $("sigBtn").disabled = true; S.analysis = { status: "running", stage: 0 }; renderAnalysis(); renderSignal();
@@ -167,7 +174,7 @@ function renderSignal(msg) {
   $("sigChips").innerHTML = Object.keys(SHORT).map(k => { const ok = !S.available || S.available.has(D.STRATEGIES[k].type); return `<button data-k="${k}" aria-pressed="${k === S.strategy}" ${ok && !S.running ? "" : "disabled"}>${SHORT[k]}</button>`; }).join("");
   why.hidden = true; go.hidden = true;
   if (msg) { box.innerHTML = `<p class="note">${esc(msg)}</p>`; return; }
-  if (!a || (a.status === "done" && (a.symbol !== S.symbol || a.strategy !== S.strategy))) { box.innerHTML = `<div class="orb no">?</div><p class="note">Choisissez le contrat puis appuyez sur <b>Obtenir le signal</b>. Le calcul utilise jusqu'à 5 000 vrais ticks et le vrai paiement Deriv.</p>`; return; }
+  if (!a || (a.status === "done" && (a.symbol !== S.symbol || a.strategy !== S.strategy))) { box.innerHTML = `<div class="orb no">?</div><p class="note">${S.connected ? "Le signal se calcule automatiquement" : "Connexion à Deriv…"} : jusqu'à 5 000 vrais ticks et le vrai paiement Deriv.</p>`; return; }
   if (a.status === "running") { const i = a.stage || 0; box.innerHTML = `<div class="spin" aria-hidden="true"></div><p style="margin:0">${STAGES[i]}</p><div class="bar"><i style="width:${(i + 1) / STAGES.length * 100}%"></i></div>`; return; }
   if (a.status === "error") { box.innerHTML = `<p class="bad">Signal impossible : ${esc(a.reason)}</p>`; return; }
   if (a.status === "insufficient") { box.innerHTML = `<div class="orb no">…</div><p class="sigtitle no">PAS ASSEZ DE TICKS</p><p class="note">${a.n} reçus, ${a.need} nécessaires.</p>`; return; }
@@ -396,21 +403,38 @@ function renderStrategies() {
 }
 function renderAll() { renderStatus(); renderAccount(); renderDigits(); renderAnalysis(); renderSignal(); renderSession(); renderStrategies(); renderJournal(); $("realBox").hidden = $("mode").value !== "real"; }
 
+/* ================= automatic signal (read-only, no account needed) ================= */
+// On opening, the page connects to Deriv WITHOUT a token (public ticks + public prices only) and computes the signal,
+// then refreshes it every AUTO_SEC seconds while the page is visible and no session is running.
+// Buying still requires a Deriv token: Deriv refuses any purchase without one.
+const AUTO = !new URLSearchParams(location.search).has("manuel"), AUTO_SEC = 60;
+async function autoSignal() {
+  log("Signal automatique : connexion à Deriv en lecture seule (aucun compte nécessaire).");
+  await connect();
+  if (S.connected) analyse();
+  setInterval(() => {
+    if (!S.connected || S.running || S.stopping || document.hidden) return;
+    if (S.analysis && S.analysis.status === "running") return;
+    analyse();
+  }, AUTO_SEC * 1000);
+}
+
 /* ================= wiring ================= */
 function init() {
   $("market").innerHTML = D.MARKETS.map(m => `<option value="${m.symbol}" ${m.symbol === S.symbol ? "selected" : ""}>${esc(m.label)}</option>`).join("");
   for (const [id, k] of [["pStake", "stake"], ["pMaxTrades", "maxTrades"], ["pTarget", "profitTarget"], ["pMaxLoss", "maxLoss"], ["pPause", "pauseSec"], ["pExposure", "maxExposure"], ["pWindow", "window"]]) $(id).value = D.DEFAULTS[k];
   $("connectBtn").onclick = connect; $("disconnectBtn").onclick = disconnect;
-  $("market").onchange = e => { if (S.running) { e.target.value = S.symbol; log("Arrêtez la session avant de changer de marché.", "bad"); return; } S.symbol = e.target.value; loadMarket(); renderAll(); };
+  $("market").onchange = e => { if (S.running) { e.target.value = S.symbol; log("Arrêtez la session avant de changer de marché.", "bad"); return; } S.symbol = e.target.value; renderAll(); loadMarket().then(() => { if (AUTO && S.connected) analyse(); }); };
   $("strategy").onchange = e => { if (S.running) { renderStrategies(); return; } S.strategy = e.target.value; renderAll(); };
   $("analyseBtn").onclick = analyse; $("startBtn").onclick = start; $("sigBtn").onclick = analyse;
-  $("sigChips").onclick = e => { const b = e.target.closest("button[data-k]"); if (!b || S.running) return; S.strategy = b.dataset.k; renderAll(); };
+  $("sigChips").onclick = e => { const b = e.target.closest("button[data-k]"); if (!b || S.running) return; S.strategy = b.dataset.k; renderAll(); if (S.connected) analyse(); };
   $("sigGo").onclick = () => $("botCard").scrollIntoView({ behavior: "smooth", block: "start" });
   $("stopBtn").onclick = () => stop("arrêt manuel"); $("urgBtn").onclick = () => stop("arrêt d'urgence", true);
   $("mode").onchange = renderAll;
   document.querySelectorAll("#params input").forEach(i => i.addEventListener("input", () => { if (!S.running) renderSession(); renderDigits(); }));
   addEventListener("resize", drawPnl);
   renderAll();
+  if (AUTO) autoSignal();
   // read-only view for tests and debugging; the API token is never exposed
   window.__digitpro = { get state() { const { token, client, ...rest } = S; return rest; } };
 }

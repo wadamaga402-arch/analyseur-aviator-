@@ -2,6 +2,7 @@
 import { createRequire } from "node:module";
 import { readFileSync, writeFileSync } from "node:fs";
 import { startMock } from "./deriv-mock.mjs";
+import { WebSocket } from "ws";
 const { chromium } = createRequire(import.meta.url)(process.env.PW_PATH || "playwright");
 const ROOT = new URL("..", import.meta.url).pathname;
 writeFileSync("/tmp/digitpro.html", readFileSync(ROOT + "digit-pro/dist/index.html", "utf8"));
@@ -21,7 +22,7 @@ const connect = async (token) => { await p.evaluate(() => document.querySelector
 const setParams = async o => { for (const [id, v] of Object.entries(o)) await p.fill("#" + id, String(v)); };
 const runSession = async () => { await p.click("#startBtn"); await waitFor(async () => { const s = await st(); return s.session && !s.running && !s.stopping; }, 60000); return st(); };
 
-await p.goto("file:///tmp/digitpro.html"); await p.waitForTimeout(300);
+await p.goto("file:///tmp/digitpro.html?manuel"); await p.waitForTimeout(300);
 check("hors ligne au démarrage", (await T("#connPill")) === "Hors ligne");
 check("signal hors ligne : demande de connexion", (await (async () => { await p.click("#sigBtn"); return /Connectez-vous/.test(await T("#sigBox")); })()));
 check("Start refusé hors ligne", (await (async () => { await p.click("#startBtn"); return /Pas connecté/.test(await T("#startErr")); })()));
@@ -47,7 +48,8 @@ check("analyse : paiement réel demandé à Deriv", /8\.50 pour 1\.00/.test(awai
 check("analyse : stratégie refusée sur chiffres équitables", /Stratégie refusée/.test(await T("#analysis")) && (await st()).analysis.edge === false);
 check("signal : PAS DE SIGNAL sur chiffres équitables", (await T("#sigTitle")) === "PAS DE SIGNAL" && /POURQUOI CE SIGNAL/.test(await T("#sigWhy")) && /8\.50 pour 1\.00/.test(await T("#sigWhy")));
 await p.click('#sigChips button[data-k="even"]');
-check("signal : boutons de contrat = stratégie", (await p.inputValue("#strategy")) === "even" && /\?/.test(await T("#sigBox")));
+check("signal : boutons de contrat = stratégie", (await p.inputValue("#strategy")) === "even");
+await waitFor(async () => (await st()).analysis?.status === "done");
 await p.click("#sigBtn"); const sawSpin = await waitFor(async () => !!(await p.$("#sigBox .spin")) || (await st()).analysis?.status === "done", 5000);
 await waitFor(async () => (await st()).analysis?.status === "done");
 check("signal : analyse en étapes puis verdict", sawSpin && (await T("#sigTitle")) === "PAS DE SIGNAL");
@@ -118,6 +120,26 @@ check("réel : confirmation REEL exigée", /tapez REEL/.test(await T("#startErr"
 await p.check("#realOk"); await p.fill("#realConfirm", "reel"); await setParams({ pMaxTrades: 1, pStake: 1, pMaxLoss: 5 });
 s = await runSession();
 check("réel autorisé seulement avec avantage validé + confirmation", s.session.done === 1, JSON.stringify(s.session));
+
+/* automatic read-only signal on opening (real Deriv address redirected to the mock) */
+await ctrl("/reset");
+const p2 = await b.newPage({ viewport: { width: 390, height: 844 } }); const errs2 = []; p2.on("pageerror", e => errs2.push(e.message));
+await p2.routeWebSocket(/derivws\.com/, route => {   // pipe the real Deriv address to the local mock
+  const up = new WebSocket("ws://127.0.0.1:18990/websockets/v3?app_id=1089"), q = [];
+  up.on("open", () => { for (const m of q.splice(0)) up.send(m); }); up.on("message", d => route.send(d.toString())); up.on("close", () => route.close());
+  route.onMessage(m => up.readyState === 1 ? up.send(m) : q.push(m)); route.onClose(() => up.close());
+});
+const buys0 = (await ctrl("/stats")).buys;
+await p2.goto("file:///tmp/digitpro.html");
+const autoOk = await (async () => { const end = Date.now() + 30000; while (Date.now() < end) { const a = await p2.evaluate(() => window.__digitpro.state.analysis); if (a && a.status === "done") return true; await p2.waitForTimeout(200); } return false; })();
+check("ouverture : connexion automatique sans compte + signal calculé", autoOk && /lecture seule/.test(await p2.textContent("#connPill")) && (await p2.textContent("#sigTitle")) === "PAS DE SIGNAL", await p2.textContent("#sigBox"));
+await p2.click('#sigChips button[data-k="even"]');
+const autoEven = await (async () => { const end = Date.now() + 20000; while (Date.now() < end) { const a = await p2.evaluate(() => window.__digitpro.state.analysis); if (a && a.status === "done" && a.strategy === "even") return true; await p2.waitForTimeout(200); } return false; })();
+check("changement de contrat : nouveau signal automatique", autoEven);
+await p2.click("#startBtn");
+check("sans compte : aucun achat possible", /jeton API/.test(await p2.textContent("#startErr")) && (await ctrl("/stats")).buys === buys0);
+check("mode auto : aucune erreur JavaScript", !errs2.length, errs2.join(" | "));
+await p2.close();
 
 /* mobile */
 for (const w of [320, 375, 430]) { await p.setViewportSize({ width: w, height: 800 }); check(`pas de débordement à ${w}px`, await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth)); }
