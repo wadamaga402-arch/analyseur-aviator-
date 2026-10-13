@@ -6,20 +6,20 @@
 <meta name="robots" content="noindex">
 <title>Digit Pro</title>
 <style>
-/* Layout: stacked cards on phone, two columns from 1000px. Deep blue / violet, as in the original Digit Pro. */
-:root{color-scheme:dark;--bg:#0a1a6b;--bg2:#0c1f80;--card:#12309a;--card2:#0b1d6e;--line:#2a4bc4;--fg:#f2f5ff;--muted:#a9b8ee;
---accent:#38d6ff;--violet:#7b5cff;--ok:#1fc773;--bad:#ff5d73;--warn:#ffcf3f;--real:#ff9a3c;
+/* Layout: stacked cards on phone, two columns from 1000px. Charcoal + orange "signal app" look. */
+:root{color-scheme:dark;--bg:#0b0b0e;--bg2:#111115;--card:#18181d;--card2:#141418;--line:#2b2b33;--fg:#f4f2f0;--muted:#a19c98;
+--accent:#ff6b3d;--violet:#ff9a5c;--field:#101014;--ok:#1fc773;--bad:#ff5d73;--warn:#ffcf3f;--real:#ff9a3c;
 --f:"Avenir Next",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
 *{box-sizing:border-box}
 html,body{margin:0}
-body{background:linear-gradient(180deg,var(--bg),#081455);color:var(--fg);font:15px/1.5 var(--f);min-height:100vh;padding:calc(12px + env(safe-area-inset-top,0px)) 16px calc(32px + env(safe-area-inset-bottom,0px))}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--f);min-height:100vh;padding:calc(12px + env(safe-area-inset-top,0px)) 16px calc(32px + env(safe-area-inset-bottom,0px))}
 [hidden]{display:none!important}
 .wrap{max-width:1100px;margin:0 auto;display:grid;gap:14px}
 @media(min-width:1000px){.wrap{grid-template-columns:1fr 1fr;align-items:start}.full{grid-column:1/-1}}
 .card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);border-radius:22px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
 h2{margin:0;font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .brand{display:flex;gap:12px;align-items:center}
-.logo{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--violet));display:grid;place-items:center;font-weight:800;font-size:24px;color:#0a1a6b;flex:0 0 auto}
+.logo{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--violet));display:grid;place-items:center;font-weight:800;font-size:24px;color:#1a0700;flex:0 0 auto}
 h1{margin:0;font-size:26px;line-height:1}
 .sub{color:var(--muted);font-size:14px}
 .pills{display:flex;gap:8px;flex-wrap:wrap}
@@ -27,19 +27,19 @@ h1{margin:0;font-size:26px;line-height:1}
 .pill.bad{color:var(--bad);background:rgba(255,93,115,.12)} .pill.ok{color:var(--ok);background:rgba(31,199,115,.12)} .pill.warn{color:var(--warn)} .pill.real{color:var(--real);background:rgba(255,154,60,.15)}
 label{font-size:13px;color:var(--muted)}
 input,select,button{font:inherit;color:var(--fg)}
-input,select{width:100%;background:#081660;border:1px solid var(--line);border-radius:12px;padding:11px 12px;min-width:0}
+input,select{width:100%;background:var(--field);border:1px solid var(--line);border-radius:12px;padding:11px 12px;min-width:0}
 input[type=checkbox]{width:auto}
 .field{display:flex;flex-direction:column;gap:5px;min-width:0}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 button{border:0;border-radius:14px;padding:13px;font-weight:700;cursor:pointer;min-height:48px}
 button:disabled{opacity:.45;cursor:not-allowed}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.b-start{background:var(--ok);color:#03240f}.b-stop{background:#6a3aa8}.b-urg{background:var(--bad);color:#2a0008}.b-an{background:#3a3fd1}.b-sec{background:#1b3aa8;border:1px solid var(--line)}
+.b-start{background:var(--ok);color:#03240f}.b-stop{background:#3a3a44}.b-urg{background:var(--bad);color:#2a0008}.b-an{background:var(--accent);color:#1a0700}.b-sec{background:#232329;border:1px solid var(--line)}
 .digits{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
-.dg{background:#081660;border-radius:14px;padding:8px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;position:relative;overflow:hidden;border:1px solid transparent}
+.dg{background:var(--field);border-radius:14px;padding:8px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;position:relative;overflow:hidden;border:1px solid transparent}
 .dg b{font-size:24px}.dg span{font-family:var(--mono);font-size:12.5px;color:var(--muted)}
 .dg i{position:absolute;left:0;bottom:0;height:4px;background:var(--accent)}
-.dg.hi i{background:var(--warn)}.dg.lo i{background:#8f9be0}.dg.pick{border-color:var(--warn);background:#16308f}
+.dg.hi i{background:var(--warn)}.dg.lo i{background:#8f9be0}.dg.pick{border-color:var(--warn);background:#24201a}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .stats div span{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .stats div b{font-family:var(--mono);font-size:22px}
@@ -52,12 +52,39 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .chart{height:180px;position:relative}canvas{width:100%;height:100%;display:block}
 .tw{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:7px 6px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}th{color:var(--muted);font-weight:600}.mono{font-family:var(--mono);font-size:12px}
 .journal{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto;font-size:13px}
-.journal li{background:#081660;border-radius:8px;padding:6px 9px;border-left:3px solid var(--line)}.journal li span{font-family:var(--mono);color:var(--muted);margin-right:8px;font-size:11.5px}
+.journal li{background:var(--field);border-radius:8px;padding:6px 9px;border-left:3px solid var(--line)}.journal li span{font-family:var(--mono);color:var(--muted);margin-right:8px;font-size:11.5px}
 .journal li.ok{border-left-color:var(--ok)}.journal li.bad{border-left-color:var(--bad)}
 .err{margin:0;padding-left:18px;color:var(--bad);font-size:13.5px}
 .box{background:rgba(255,154,60,.08);border:1px solid var(--real);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px}
 .chk{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;color:var(--fg)}
 details summary{cursor:pointer;color:var(--muted);font-size:13px}
+/* signal card */
+.sig{background:radial-gradient(120% 80% at 50% 0%,#2a1710 0%,var(--card) 60%);border-color:#3a2a22}
+.sighead{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.sighead h2{color:var(--fg);font-size:20px;letter-spacing:0;text-transform:none}
+.tag{font-size:11px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:999px;background:rgba(255,107,61,.15);color:var(--accent);border:1px solid rgba(255,107,61,.4);white-space:nowrap}
+.asset{display:flex;align-items:center;gap:10px;background:var(--field);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.asset .ic{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#c2381a);display:grid;place-items:center;font-weight:800;font-size:13px;color:#1a0700;flex:0 0 auto}
+.asset b{display:block}.asset span{font-size:12.5px;color:var(--muted)}
+.chips{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.chips button{min-height:40px;padding:8px 4px;font-size:13px;background:var(--field);border:1px solid var(--line);border-radius:10px;font-weight:600}
+.chips button[aria-pressed=true]{background:rgba(255,107,61,.16);border-color:var(--accent);color:var(--accent)}
+.sigbox{background:var(--field);border:1px solid var(--line);border-radius:18px;padding:18px 14px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;min-height:170px;justify-content:center}
+.spin{width:54px;height:54px;border-radius:50%;background:conic-gradient(var(--accent),transparent 70%);-webkit-mask:radial-gradient(circle 19px,transparent 98%,#000);mask:radial-gradient(circle 19px,transparent 98%,#000);animation:rot 1s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+.bar{width:100%;height:5px;border-radius:9px;background:#26262d;overflow:hidden}.bar i{display:block;height:100%;background:var(--accent);transition:width .3s}
+.orb{width:74px;height:74px;border-radius:50%;display:grid;place-items:center;font-size:34px;font-weight:800}
+.orb.go{background:radial-gradient(circle,#2ee08a,#0f7a45);box-shadow:0 0 34px rgba(46,224,138,.55);color:#022012}
+.orb.no{background:radial-gradient(circle,#55555f,#2b2b33);box-shadow:0 0 24px rgba(160,160,170,.18);color:#d8d6d4}
+.sigtitle{font-size:26px;font-weight:800;letter-spacing:.04em;margin:0}
+.sigtitle.go{color:#2ee08a}.sigtitle.no{color:#d8d6d4}
+.why{background:var(--field);border:1px solid var(--line);border-radius:14px;padding:12px}
+.why h3{margin:0 0 8px;font-size:12px;letter-spacing:.08em;color:var(--muted)}
+.why ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
+.why li{display:flex;gap:8px;align-items:flex-start}.why li i{font-style:normal;flex:0 0 auto;width:18px;height:18px;border-radius:5px;display:grid;place-items:center;font-size:11px;font-weight:800;margin-top:1px}
+.why li i.y{background:#1f9d5a;color:#fff}.why li i.n{background:#c0392b;color:#fff}.why li i.w{background:#c98a17;color:#1a0f00}
+.b-ghost{background:transparent;border:1px solid var(--line)}
 .warnline{border-left:3px solid var(--warn);padding-left:10px;font-size:13.5px;color:var(--muted);margin:0}
 </style>
 </head>
@@ -68,6 +95,16 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
     <div class="pills"><span class="pill bad" id="connPill">Hors ligne</span><span class="pill" id="mktPill">—</span><span class="pill">1 contrat à la fois · sans martingale</span></div>
   </section>
 
+
+  <section class="card full sig" id="signalCard" aria-label="Signal">
+    <div class="sighead"><h2>Signal</h2><span class="tag">STATISTIQUE · TICKS RÉELS</span></div>
+    <div class="asset"><div class="ic" id="sigIc">10</div><div><b id="sigMkt">Volatility 10 (1s) Index</b><span id="sigSub">Deriv · contrats Digits · 1 tick</span></div></div>
+    <div class="chips" id="sigChips" role="group" aria-label="Contrat"></div>
+    <div class="sigbox" id="sigBox" aria-live="polite"></div>
+    <div class="why" id="sigWhy" hidden></div>
+    <button class="b-an" id="sigBtn">Obtenir le signal</button>
+    <button class="b-ghost" id="sigGo" hidden>Ouvrir le bot</button>
+  </section>
   <section class="card" aria-label="Connexion Deriv">
     <h2>Connexion Deriv</h2>
     <div class="field"><label for="token">Jeton API Deriv (compte démo conseillé · droits Read + Trade)</label><input id="token" type="password" autocomplete="off" placeholder="Collez votre jeton ici"></div>
@@ -122,7 +159,7 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px}
     <p class="note" id="applied"></p>
   </section>
 
-  <section class="card" aria-label="Bot">
+  <section class="card" id="botCard" aria-label="Bot">
     <h2>Bot</h2>
     <div class="grid2"><button class="b-start" id="startBtn">▶ Start</button><button class="b-stop" id="stopBtn" disabled>■ Stop</button></div>
     <button class="b-urg" id="urgBtn" disabled>Arrêt d'urgence</button>
@@ -412,21 +449,59 @@ async function quote(strategy, stake, barrier) {
   if (s.needsDigit) req.barrier = String(barrier ?? 5);
   return (await S.client.send(req)).proposal;
 }
+const STAGES = ["Récupération des ticks réels…", "Demande du paiement à Deriv…", "Test hors échantillon…"];
+const setStage = i => { if (S.analysis && S.analysis.status === "running") { S.analysis.stage = i; renderAnalysis(); renderSignal(); } };
 async function analyse() {
-  if (!S.connected) { log("Connectez-vous d'abord à Deriv.", "bad"); return; }
+  if (!S.connected) { log("Connectez-vous d'abord à Deriv.", "bad"); renderSignal("Connectez-vous d'abord à Deriv (section Connexion)."); return; }
   if (S.available && !S.available.has(D.STRATEGIES[S.strategy].type)) { log("Ce contrat n'est pas proposé sur ce marché.", "bad"); return; }
-  $("analyseBtn").disabled = true; S.analysis = { status: "running" }; renderAnalysis();
+  $("analyseBtn").disabled = true; $("sigBtn").disabled = true; S.analysis = { status: "running", stage: 0 }; renderAnalysis(); renderSignal();
   try {
     const h = await S.client.send({ ticks_history: S.symbol, count: 5000, end: "latest", style: "ticks" }, 30000);
     const digits = h.history.prices.map(p => D.lastDigit(p, h.pip_size ?? S.pip));
+    setStage(1);
     const pr = await quote(S.strategy, 1);
     const ratio = Number(pr.payout) / Number(pr.ask_price);
-    S.analysis = Object.assign(D.validateStrategy(digits, S.strategy, ratio), { at: new Date(), payout: Number(pr.payout), ask: Number(pr.ask_price), symbol: S.symbol, strategy: S.strategy });
+    setStage(2);
+    const v = D.validateStrategy(digits, S.strategy, ratio);
+    S.analysis = Object.assign(v, { at: new Date(), payout: Number(pr.payout), ask: Number(pr.ask_price), symbol: S.symbol, strategy: S.strategy,
+      now: v.status === "done" ? D.pick(S.strategy, digits.slice(-v.N)) : null });
     log(`Analyse ${S.strategy} sur ${digits.length} ticks réels : ${S.analysis.edge ? "avantage observé hors échantillon (à confirmer)" : "aucun avantage démontré"}.`, S.analysis.edge ? "ok" : "");
   } catch (e) { S.analysis = { status: "error", reason: e.message || "erreur" }; log("Analyse impossible : " + (e.message || e.code), "bad"); }
-  $("analyseBtn").disabled = false; renderAll();
+  $("analyseBtn").disabled = false; $("sigBtn").disabled = false; renderAll();
 }
 
+/* ---- signal card (same data as the analysis, presented as a signal screen) ---- */
+const SHORT = { matches: "Matches", differs: "Differs", even: "Even", odd: "Odd" };
+function renderSignal(msg) {
+  const a = S.analysis, box = $("sigBox"), why = $("sigWhy"), go = $("sigGo");
+  const m = D.MARKETS.find(x => x.symbol === S.symbol) || { label: S.symbol };
+  $("sigMkt").textContent = m.label; $("sigIc").textContent = (m.label.match(/\d+/) || ["?"])[0];
+  $("sigSub").textContent = `Deriv · ${SHORT[S.strategy]} · 1 tick · ${S.account ? (S.account.isVirtual ? "compte DÉMO" : "compte RÉEL") : S.connected ? "lecture seule" : "non connecté"}`;
+  $("sigChips").innerHTML = Object.keys(SHORT).map(k => { const ok = !S.available || S.available.has(D.STRATEGIES[k].type); return `<button data-k="${k}" aria-pressed="${k === S.strategy}" ${ok && !S.running ? "" : "disabled"}>${SHORT[k]}</button>`; }).join("");
+  why.hidden = true; go.hidden = true;
+  if (msg) { box.innerHTML = `<p class="note">${esc(msg)}</p>`; return; }
+  if (!a || (a.status === "done" && (a.symbol !== S.symbol || a.strategy !== S.strategy))) { box.innerHTML = `<div class="orb no">?</div><p class="note">Choisissez le contrat puis appuyez sur <b>Obtenir le signal</b>. Le calcul utilise jusqu'à 5 000 vrais ticks et le vrai paiement Deriv.</p>`; return; }
+  if (a.status === "running") { const i = a.stage || 0; box.innerHTML = `<div class="spin" aria-hidden="true"></div><p style="margin:0">${STAGES[i]}</p><div class="bar"><i style="width:${(i + 1) / STAGES.length * 100}%"></i></div>`; return; }
+  if (a.status === "error") { box.innerHTML = `<p class="bad">Signal impossible : ${esc(a.reason)}</p>`; return; }
+  if (a.status === "insufficient") { box.innerHTML = `<div class="orb no">…</div><p class="sigtitle no">PAS ASSEZ DE TICKS</p><p class="note">${a.n} reçus, ${a.need} nécessaires.</p>`; return; }
+  const t = a.test, need = 1 / a.payoutRatio, r = x => pct(x);
+  const what = a.now ? SHORT[a.strategy] + (a.now.barrier != null ? " " + a.now.barrier : "") : SHORT[a.strategy];
+  box.innerHTML = a.edge
+    ? `<div class="orb go">✓</div><p class="sigtitle go" id="sigTitle">${esc(what.toUpperCase())}</p><p class="note">Avantage observé sur des ticks jamais utilisés. À confirmer en démo : cela peut encore être du hasard.</p>`
+    : `<div class="orb no">✕</div><p class="sigtitle no" id="sigTitle">PAS DE SIGNAL</p><p class="note">${esc(what)} ne bat pas la marge de Deriv sur ce marché. Ne pas trader.</p>`;
+  const it = (k, txt) => `<li><i class="${k}">${k === "y" ? "✓" : k === "n" ? "✕" : "!"}</i><span>${txt}</span></li>`;
+  const factors = [a.n >= 600, a.fit && a.fit.p < 0.05, t.hit > need, t.roiCI[0] > 0];
+  why.innerHTML = `<h3>POURQUOI CE SIGNAL</h3><ul>
+    ${it("y", `${a.n} vrais ticks de ${esc(a.symbol)} · ${a.at.toLocaleTimeString("fr-FR")}`)}
+    ${it(a.theoEV >= 0 ? "y" : "n", `Paiement Deriv ${a.payout.toFixed(2)} pour ${a.ask.toFixed(2)} · il faut gagner ${r(need)} du temps (théorie : ${r(a.theoP)})`)}
+    ${it(factors[1] ? "y" : "w", a.fit ? `Écart des chiffres : khi² p = ${a.fit.p.toFixed(3)} ${factors[1] ? "(déséquilibre)" : "(chiffres équilibrés)"}` : "Écart des chiffres : —")}
+    ${it(factors[2] ? "y" : "n", `Réussite sur ticks jamais vus : ${r(t.hit)} sur ${t.n} cas`)}
+    ${it(factors[3] ? "y" : "n", `Rendement test : ${t.roi >= 0 ? "+" : "−"}${pct(Math.abs(t.roi))} [${r(t.roiCI[0])} ; ${r(t.roiCI[1])}]`)}
+    ${it(a.edge ? "y" : "w", `Critères remplis : ${factors.filter(Boolean).length} sur 4 · fenêtre ${a.N} ticks`)}
+  </ul>`;
+  why.hidden = false; go.hidden = false;
+  go.textContent = a.edge ? "Ouvrir le bot (démo d'abord)" : "Ouvrir le bot (test technique en démo)";
+}
 /* ================= session bot ================= */
 function readParams() {
   const n = id => Number(String($(id).value).replace(",", "."));
@@ -632,7 +707,7 @@ function renderStrategies() {
   const sel = $("strategy");
   sel.innerHTML = Object.entries(D.STRATEGIES).map(([k, s]) => { const ok = !S.available || S.available.has(s.type); return `<option value="${k}" ${k === S.strategy ? "selected" : ""} ${ok ? "" : "disabled"}>${esc(s.label)}${ok ? "" : " — indisponible"}</option>`; }).join("");
 }
-function renderAll() { renderStatus(); renderAccount(); renderDigits(); renderAnalysis(); renderSession(); renderStrategies(); renderJournal(); $("realBox").hidden = $("mode").value !== "real"; }
+function renderAll() { renderStatus(); renderAccount(); renderDigits(); renderAnalysis(); renderSignal(); renderSession(); renderStrategies(); renderJournal(); $("realBox").hidden = $("mode").value !== "real"; }
 
 /* ================= wiring ================= */
 function init() {
@@ -641,7 +716,9 @@ function init() {
   $("connectBtn").onclick = connect; $("disconnectBtn").onclick = disconnect;
   $("market").onchange = e => { if (S.running) { e.target.value = S.symbol; log("Arrêtez la session avant de changer de marché.", "bad"); return; } S.symbol = e.target.value; loadMarket(); renderAll(); };
   $("strategy").onchange = e => { if (S.running) { renderStrategies(); return; } S.strategy = e.target.value; renderAll(); };
-  $("analyseBtn").onclick = analyse; $("startBtn").onclick = start;
+  $("analyseBtn").onclick = analyse; $("startBtn").onclick = start; $("sigBtn").onclick = analyse;
+  $("sigChips").onclick = e => { const b = e.target.closest("button[data-k]"); if (!b || S.running) return; S.strategy = b.dataset.k; renderAll(); };
+  $("sigGo").onclick = () => $("botCard").scrollIntoView({ behavior: "smooth", block: "start" });
   $("stopBtn").onclick = () => stop("arrêt manuel"); $("urgBtn").onclick = () => stop("arrêt d'urgence", true);
   $("mode").onchange = renderAll;
   document.querySelectorAll("#params input").forEach(i => i.addEventListener("input", () => { if (!S.running) renderSession(); renderDigits(); }));

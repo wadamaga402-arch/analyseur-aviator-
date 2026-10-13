@@ -136,21 +136,59 @@ async function quote(strategy, stake, barrier) {
   if (s.needsDigit) req.barrier = String(barrier ?? 5);
   return (await S.client.send(req)).proposal;
 }
+const STAGES = ["Récupération des ticks réels…", "Demande du paiement à Deriv…", "Test hors échantillon…"];
+const setStage = i => { if (S.analysis && S.analysis.status === "running") { S.analysis.stage = i; renderAnalysis(); renderSignal(); } };
 async function analyse() {
-  if (!S.connected) { log("Connectez-vous d'abord à Deriv.", "bad"); return; }
+  if (!S.connected) { log("Connectez-vous d'abord à Deriv.", "bad"); renderSignal("Connectez-vous d'abord à Deriv (section Connexion)."); return; }
   if (S.available && !S.available.has(D.STRATEGIES[S.strategy].type)) { log("Ce contrat n'est pas proposé sur ce marché.", "bad"); return; }
-  $("analyseBtn").disabled = true; S.analysis = { status: "running" }; renderAnalysis();
+  $("analyseBtn").disabled = true; $("sigBtn").disabled = true; S.analysis = { status: "running", stage: 0 }; renderAnalysis(); renderSignal();
   try {
     const h = await S.client.send({ ticks_history: S.symbol, count: 5000, end: "latest", style: "ticks" }, 30000);
     const digits = h.history.prices.map(p => D.lastDigit(p, h.pip_size ?? S.pip));
+    setStage(1);
     const pr = await quote(S.strategy, 1);
     const ratio = Number(pr.payout) / Number(pr.ask_price);
-    S.analysis = Object.assign(D.validateStrategy(digits, S.strategy, ratio), { at: new Date(), payout: Number(pr.payout), ask: Number(pr.ask_price), symbol: S.symbol, strategy: S.strategy });
+    setStage(2);
+    const v = D.validateStrategy(digits, S.strategy, ratio);
+    S.analysis = Object.assign(v, { at: new Date(), payout: Number(pr.payout), ask: Number(pr.ask_price), symbol: S.symbol, strategy: S.strategy,
+      now: v.status === "done" ? D.pick(S.strategy, digits.slice(-v.N)) : null });
     log(`Analyse ${S.strategy} sur ${digits.length} ticks réels : ${S.analysis.edge ? "avantage observé hors échantillon (à confirmer)" : "aucun avantage démontré"}.`, S.analysis.edge ? "ok" : "");
   } catch (e) { S.analysis = { status: "error", reason: e.message || "erreur" }; log("Analyse impossible : " + (e.message || e.code), "bad"); }
-  $("analyseBtn").disabled = false; renderAll();
+  $("analyseBtn").disabled = false; $("sigBtn").disabled = false; renderAll();
 }
 
+/* ---- signal card (same data as the analysis, presented as a signal screen) ---- */
+const SHORT = { matches: "Matches", differs: "Differs", even: "Even", odd: "Odd" };
+function renderSignal(msg) {
+  const a = S.analysis, box = $("sigBox"), why = $("sigWhy"), go = $("sigGo");
+  const m = D.MARKETS.find(x => x.symbol === S.symbol) || { label: S.symbol };
+  $("sigMkt").textContent = m.label; $("sigIc").textContent = (m.label.match(/\d+/) || ["?"])[0];
+  $("sigSub").textContent = `Deriv · ${SHORT[S.strategy]} · 1 tick · ${S.account ? (S.account.isVirtual ? "compte DÉMO" : "compte RÉEL") : S.connected ? "lecture seule" : "non connecté"}`;
+  $("sigChips").innerHTML = Object.keys(SHORT).map(k => { const ok = !S.available || S.available.has(D.STRATEGIES[k].type); return `<button data-k="${k}" aria-pressed="${k === S.strategy}" ${ok && !S.running ? "" : "disabled"}>${SHORT[k]}</button>`; }).join("");
+  why.hidden = true; go.hidden = true;
+  if (msg) { box.innerHTML = `<p class="note">${esc(msg)}</p>`; return; }
+  if (!a || (a.status === "done" && (a.symbol !== S.symbol || a.strategy !== S.strategy))) { box.innerHTML = `<div class="orb no">?</div><p class="note">Choisissez le contrat puis appuyez sur <b>Obtenir le signal</b>. Le calcul utilise jusqu'à 5 000 vrais ticks et le vrai paiement Deriv.</p>`; return; }
+  if (a.status === "running") { const i = a.stage || 0; box.innerHTML = `<div class="spin" aria-hidden="true"></div><p style="margin:0">${STAGES[i]}</p><div class="bar"><i style="width:${(i + 1) / STAGES.length * 100}%"></i></div>`; return; }
+  if (a.status === "error") { box.innerHTML = `<p class="bad">Signal impossible : ${esc(a.reason)}</p>`; return; }
+  if (a.status === "insufficient") { box.innerHTML = `<div class="orb no">…</div><p class="sigtitle no">PAS ASSEZ DE TICKS</p><p class="note">${a.n} reçus, ${a.need} nécessaires.</p>`; return; }
+  const t = a.test, need = 1 / a.payoutRatio, r = x => pct(x);
+  const what = a.now ? SHORT[a.strategy] + (a.now.barrier != null ? " " + a.now.barrier : "") : SHORT[a.strategy];
+  box.innerHTML = a.edge
+    ? `<div class="orb go">✓</div><p class="sigtitle go" id="sigTitle">${esc(what.toUpperCase())}</p><p class="note">Avantage observé sur des ticks jamais utilisés. À confirmer en démo : cela peut encore être du hasard.</p>`
+    : `<div class="orb no">✕</div><p class="sigtitle no" id="sigTitle">PAS DE SIGNAL</p><p class="note">${esc(what)} ne bat pas la marge de Deriv sur ce marché. Ne pas trader.</p>`;
+  const it = (k, txt) => `<li><i class="${k}">${k === "y" ? "✓" : k === "n" ? "✕" : "!"}</i><span>${txt}</span></li>`;
+  const factors = [a.n >= 600, a.fit && a.fit.p < 0.05, t.hit > need, t.roiCI[0] > 0];
+  why.innerHTML = `<h3>POURQUOI CE SIGNAL</h3><ul>
+    ${it("y", `${a.n} vrais ticks de ${esc(a.symbol)} · ${a.at.toLocaleTimeString("fr-FR")}`)}
+    ${it(a.theoEV >= 0 ? "y" : "n", `Paiement Deriv ${a.payout.toFixed(2)} pour ${a.ask.toFixed(2)} · il faut gagner ${r(need)} du temps (théorie : ${r(a.theoP)})`)}
+    ${it(factors[1] ? "y" : "w", a.fit ? `Écart des chiffres : khi² p = ${a.fit.p.toFixed(3)} ${factors[1] ? "(déséquilibre)" : "(chiffres équilibrés)"}` : "Écart des chiffres : —")}
+    ${it(factors[2] ? "y" : "n", `Réussite sur ticks jamais vus : ${r(t.hit)} sur ${t.n} cas`)}
+    ${it(factors[3] ? "y" : "n", `Rendement test : ${t.roi >= 0 ? "+" : "−"}${pct(Math.abs(t.roi))} [${r(t.roiCI[0])} ; ${r(t.roiCI[1])}]`)}
+    ${it(a.edge ? "y" : "w", `Critères remplis : ${factors.filter(Boolean).length} sur 4 · fenêtre ${a.N} ticks`)}
+  </ul>`;
+  why.hidden = false; go.hidden = false;
+  go.textContent = a.edge ? "Ouvrir le bot (démo d'abord)" : "Ouvrir le bot (test technique en démo)";
+}
 /* ================= session bot ================= */
 function readParams() {
   const n = id => Number(String($(id).value).replace(",", "."));
@@ -356,7 +394,7 @@ function renderStrategies() {
   const sel = $("strategy");
   sel.innerHTML = Object.entries(D.STRATEGIES).map(([k, s]) => { const ok = !S.available || S.available.has(s.type); return `<option value="${k}" ${k === S.strategy ? "selected" : ""} ${ok ? "" : "disabled"}>${esc(s.label)}${ok ? "" : " — indisponible"}</option>`; }).join("");
 }
-function renderAll() { renderStatus(); renderAccount(); renderDigits(); renderAnalysis(); renderSession(); renderStrategies(); renderJournal(); $("realBox").hidden = $("mode").value !== "real"; }
+function renderAll() { renderStatus(); renderAccount(); renderDigits(); renderAnalysis(); renderSignal(); renderSession(); renderStrategies(); renderJournal(); $("realBox").hidden = $("mode").value !== "real"; }
 
 /* ================= wiring ================= */
 function init() {
@@ -365,7 +403,9 @@ function init() {
   $("connectBtn").onclick = connect; $("disconnectBtn").onclick = disconnect;
   $("market").onchange = e => { if (S.running) { e.target.value = S.symbol; log("Arrêtez la session avant de changer de marché.", "bad"); return; } S.symbol = e.target.value; loadMarket(); renderAll(); };
   $("strategy").onchange = e => { if (S.running) { renderStrategies(); return; } S.strategy = e.target.value; renderAll(); };
-  $("analyseBtn").onclick = analyse; $("startBtn").onclick = start;
+  $("analyseBtn").onclick = analyse; $("startBtn").onclick = start; $("sigBtn").onclick = analyse;
+  $("sigChips").onclick = e => { const b = e.target.closest("button[data-k]"); if (!b || S.running) return; S.strategy = b.dataset.k; renderAll(); };
+  $("sigGo").onclick = () => $("botCard").scrollIntoView({ behavior: "smooth", block: "start" });
   $("stopBtn").onclick = () => stop("arrêt manuel"); $("urgBtn").onclick = () => stop("arrêt d'urgence", true);
   $("mode").onchange = renderAll;
   document.querySelectorAll("#params input").forEach(i => i.addEventListener("input", () => { if (!S.running) renderSession(); renderDigits(); }));

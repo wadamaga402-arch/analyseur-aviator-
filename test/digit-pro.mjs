@@ -23,6 +23,7 @@ const runSession = async () => { await p.click("#startBtn"); await waitFor(async
 
 await p.goto("file:///tmp/digitpro.html"); await p.waitForTimeout(300);
 check("hors ligne au démarrage", (await T("#connPill")) === "Hors ligne");
+check("signal hors ligne : demande de connexion", (await (async () => { await p.click("#sigBtn"); return /Connectez-vous/.test(await T("#sigBox")); })()));
 check("Start refusé hors ligne", (await (async () => { await p.click("#startBtn"); return /Pas connecté/.test(await T("#startErr")); })()));
 
 /* connection */
@@ -44,6 +45,13 @@ await p.selectOption("#strategy", "matches"); await p.click("#analyseBtn");
 await waitFor(async () => (await st()).analysis?.status === "done");
 check("analyse : paiement réel demandé à Deriv", /8\.50 pour 1\.00/.test(await T("#analysis")));
 check("analyse : stratégie refusée sur chiffres équitables", /Stratégie refusée/.test(await T("#analysis")) && (await st()).analysis.edge === false);
+check("signal : PAS DE SIGNAL sur chiffres équitables", (await T("#sigTitle")) === "PAS DE SIGNAL" && /POURQUOI CE SIGNAL/.test(await T("#sigWhy")) && /8\.50 pour 1\.00/.test(await T("#sigWhy")));
+await p.click('#sigChips button[data-k="even"]');
+check("signal : boutons de contrat = stratégie", (await p.inputValue("#strategy")) === "even" && /\?/.test(await T("#sigBox")));
+await p.click("#sigBtn"); const sawSpin = await waitFor(async () => !!(await p.$("#sigBox .spin")) || (await st()).analysis?.status === "done", 5000);
+await waitFor(async () => (await st()).analysis?.status === "done");
+check("signal : analyse en étapes puis verdict", sawSpin && (await T("#sigTitle")) === "PAS DE SIGNAL");
+await p.click('#sigChips button[data-k="matches"]'); await p.click("#analyseBtn"); await waitFor(async () => (await st()).analysis?.status === "done");
 check("analyse : espérance théorique négative affichée", /−0,150|-0\.150/.test(await T("#analysis")));
 
 /* start gating */
@@ -104,6 +112,7 @@ await connect("real-token-456"); await ctrl("/digits?mode=bias");
 await p.selectOption("#strategy", "matches"); await p.click("#analyseBtn");
 await waitFor(async () => (await st()).analysis?.status === "done");
 check("biais réel détecté : avantage hors échantillon", (await st()).analysis.edge === true, await T("#analysis"));
+check("signal vert seulement avec avantage : MATCHES 4", (await T("#sigTitle")) === "MATCHES 4" && !!(await p.$("#sigBox .orb.go")), await T("#sigBox"));
 await p.selectOption("#mode", "real"); await p.click("#startBtn");
 check("réel : confirmation REEL exigée", /tapez REEL/.test(await T("#startErr")));
 await p.check("#realOk"); await p.fill("#realConfirm", "reel"); await setParams({ pMaxTrades: 1, pStake: 1, pMaxLoss: 5 });
