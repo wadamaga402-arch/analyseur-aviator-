@@ -6,8 +6,13 @@
   "scripts": {
     "build": "node scripts/build-site.mjs && node scripts/sync-engine.mjs && node scripts/build-serverless.mjs",
     "test": "node scripts/sync-engine.mjs --check && node --test test/engine.test.mjs && node --import ./test/mocks/register.mjs --test test/serverless.test.mjs && node test/e2e.mjs && node test/telegram.mjs",
+    "build:digit": "node scripts/build-digit-pro.mjs",
+    "test:digit": "node --test test/digit-engine.test.mjs && node scripts/build-digit-pro.mjs && node test/digit-pro.mjs",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy"
   },
-  "devDependencies": { "wrangler": "^4.149.0" }
+  "devDependencies": {
+    "wrangler": "^4.149.0",
+    "ws": "^8.18.0"
+  }
 }

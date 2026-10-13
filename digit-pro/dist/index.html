@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Digit Pro</title>
+<style>
+/* Layout: stacked cards on phone, two columns from 1000px. Deep blue / violet, as in the original Digit Pro. */
+:root{color-scheme:dark;--bg:#0a1a6b;--bg2:#0c1f80;--card:#12309a;--card2:#0b1d6e;--line:#2a4bc4;--fg:#f2f5ff;--muted:#a9b8ee;
+--accent:#38d6ff;--violet:#7b5cff;--ok:#1fc773;--bad:#ff5d73;--warn:#ffcf3f;--real:#ff9a3c;
+--f:"Avenir Next",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:linear-gradient(180deg,var(--bg),#081455);color:var(--fg);font:15px/1.5 var(--f);min-height:100vh;padding:calc(12px + env(safe-area-inset-top,0px)) 16px calc(32px + env(safe-area-inset-bottom,0px))}
+[hidden]{display:none!important}
+.wrap{max-width:1100px;margin:0 auto;display:grid;gap:14px}
+@media(min-width:1000px){.wrap{grid-template-columns:1fr 1fr;align-items:start}.full{grid-column:1/-1}}
+.card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);border-radius:22px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+h2{margin:0;font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.brand{display:flex;gap:12px;align-items:center}
+.logo{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--violet));display:grid;place-items:center;font-weight:800;font-size:24px;color:#0a1a6b;flex:0 0 auto}
+h1{margin:0;font-size:26px;line-height:1}
+.sub{color:var(--muted);font-size:14px}
+.pills{display:flex;gap:8px;flex-wrap:wrap}
+.pill{border-radius:999px;padding:4px 12px;font-size:13px;background:rgba(255,255,255,.07);border:1px solid var(--line);white-space:nowrap}
+.pill.bad{color:var(--bad);background:rgba(255,93,115,.12)} .pill.ok{color:var(--ok);background:rgba(31,199,115,.12)} .pill.warn{color:var(--warn)} .pill.real{color:var(--real);background:rgba(255,154,60,.15)}
+label{font-size:13px;color:var(--muted)}
+input,select,button{font:inherit;color:var(--fg)}
+input,select{width:100%;background:#081660;border:1px solid var(--line);border-radius:12px;padding:11px 12px;min-width:0}
+input[type=checkbox]{width:auto}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{border:0;border-radius:14px;padding:13px;font-weight:700;cursor:pointer;min-height:48px}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.b-start{background:var(--ok);color:#03240f}.b-stop{background:#6a3aa8}.b-urg{background:var(--bad);color:#2a0008}.b-an{background:#3a3fd1}.b-sec{background:#1b3aa8;border:1px solid var(--line)}
+.digits{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.dg{background:#081660;border-radius:14px;padding:8px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;position:relative;overflow:hidden;border:1px solid transparent}
+.dg b{font-size:24px}.dg span{font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+.dg i{position:absolute;left:0;bottom:0;height:4px;background:var(--accent)}
+.dg.hi i{background:var(--warn)}.dg.lo i{background:#8f9be0}.dg.pick{border-color:var(--warn);background:#16308f}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stats div span{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.stats div b{font-family:var(--mono);font-size:22px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0;font-size:13.5px}.kv dt{color:var(--muted)}.kv dd{margin:0;min-width:0}
+.verdict{font-size:20px;font-weight:800;margin:0}
+.okc{color:var(--ok)}.badc{color:var(--bad)}.realc{color:var(--real)}
+.note{color:var(--muted);font-size:13.5px;margin:0}
+.bad{color:var(--bad)}
+.acct{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.acct div span{display:block;font-size:12px;color:var(--muted)}.acct div b{font-family:var(--mono);overflow-wrap:anywhere}
+.chart{height:180px;position:relative}canvas{width:100%;height:100%;display:block}
+.tw{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:7px 6px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}th{color:var(--muted);font-weight:600}.mono{font-family:var(--mono);font-size:12px}
+.journal{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto;font-size:13px}
+.journal li{background:#081660;border-radius:8px;padding:6px 9px;border-left:3px solid var(--line)}.journal li span{font-family:var(--mono);color:var(--muted);margin-right:8px;font-size:11.5px}
+.journal li.ok{border-left-color:var(--ok)}.journal li.bad{border-left-color:var(--bad)}
+.err{margin:0;padding-left:18px;color:var(--bad);font-size:13.5px}
+.box{background:rgba(255,154,60,.08);border:1px solid var(--real);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;color:var(--fg)}
+details summary{cursor:pointer;color:var(--muted);font-size:13px}
+.warnline{border-left:3px solid var(--warn);padding-left:10px;font-size:13.5px;color:var(--muted);margin:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="card full" aria-label="Digit Pro">
+    <div class="brand"><div class="logo">D</div><div><h1>Digit Pro</h1><div class="sub">Tableau d'analyse et bot des Digits Deriv</div></div></div>
+    <div class="pills"><span class="pill bad" id="connPill">Hors ligne</span><span class="pill" id="mktPill">—</span><span class="pill">1 contrat à la fois · sans martingale</span></div>
+  </section>
+
+  <section class="card" aria-label="Connexion Deriv">
+    <h2>Connexion Deriv</h2>
+    <div class="field"><label for="token">Jeton API Deriv (compte démo conseillé · droits Read + Trade)</label><input id="token" type="password" autocomplete="off" placeholder="Collez votre jeton ici"></div>
+    <details><summary>Réglages avancés</summary>
+      <div class="grid2" style="margin-top:8px">
+        <div class="field"><label for="appId">App ID</label><input id="appId" value="1089" inputmode="numeric"></div>
+        <div class="field"><label for="apiUrl">Serveur API</label><input id="apiUrl" value="wss://ws.derivws.com/websockets/v3"></div>
+      </div>
+    </details>
+    <div class="grid2"><button class="b-start" id="connectBtn">Se connecter</button><button class="b-sec" id="disconnectBtn">Déconnecter</button></div>
+    <div class="acct" id="acct"></div>
+    <p class="note">Le jeton reste en mémoire pendant la visite. Il n'est jamais enregistré, affiché ni écrit dans le journal.</p>
+  </section>
+
+  <section class="card" aria-label="Marché et stratégie">
+    <h2>Marché et stratégie</h2>
+    <div class="field"><label for="market">Volatilité</label><select id="market"></select></div>
+    <div class="field"><label for="strategy">Stratégie</label><select id="strategy"></select></div>
+    <button class="b-an" id="analyseBtn">Analyser la stratégie</button>
+    <div id="analysis"></div>
+  </section>
+
+  <section class="card" aria-label="Chiffres en direct">
+    <h2>Probabilité des chiffres en direct</h2>
+    <div class="digits" id="digits"></div>
+    <div class="stats">
+      <div><span>Chiffre actuel</span><b id="cur">—</b></div><div><span>Prix en direct</span><b id="price">—</b></div>
+      <div><span>Ticks reçus</span><b id="ticks">0</b></div><div><span>Even / Odd</span><b id="eo">—</b></div>
+      <div><span>Mise à jour</span><b id="upd">—</b></div><div><span>Test khi²</span><b id="fit" style="font-size:14px">—</b></div>
+    </div>
+    <p class="note">Fréquences sur la fenêtre choisie. Un chiffre « fréquent » ne sort pas plus souvent au tick suivant : chaque tick est indépendant.</p>
+  </section>
+
+  <section class="card" id="params" aria-label="Paramètres de session">
+    <h2>Paramètres de session</h2>
+    <div class="grid2">
+      <div class="field"><label for="pStake">Mise par transaction</label><input id="pStake" inputmode="decimal"></div>
+      <div class="field"><label for="pMaxTrades">Transactions max</label><input id="pMaxTrades" inputmode="numeric"></div>
+      <div class="field"><label for="pTarget">Objectif de bénéfice</label><input id="pTarget" inputmode="decimal"></div>
+      <div class="field"><label for="pMaxLoss">Perte maximale</label><input id="pMaxLoss" inputmode="decimal"></div>
+      <div class="field"><label for="pPause">Pause entre transactions (s)</label><input id="pPause" inputmode="numeric"></div>
+      <div class="field"><label for="pExposure">Montant max exposé</label><input id="pExposure" inputmode="decimal"></div>
+      <div class="field"><label for="pWindow">Ticks analysés</label><input id="pWindow" inputmode="numeric"></div>
+      <div class="field"><label for="mode">Mode</label><select id="mode"><option value="demo">Démo</option><option value="real">Réel</option></select></div>
+    </div>
+    <label class="chk"><input type="checkbox" id="execTest"> Test technique en démo : je sais qu'aucun avantage n'est démontré ; je veux seulement vérifier achats, règlements et limites sur mon compte démo.</label>
+    <div class="box" id="realBox" hidden>
+      <label class="chk"><input type="checkbox" id="realOk"> Je comprends que je peux perdre l'argent misé. Le mode réel n'est autorisé que si l'analyse a démontré un avantage.</label>
+      <div class="field"><label for="realConfirm">Tapez REEL pour confirmer</label><input id="realConfirm" autocomplete="off"></div>
+    </div>
+    <p class="warnline">Stop loss : les contrats Digits durent 1 tick et ne proposent pas de stop loss individuel. La perte maximale d'une transaction est sa mise ; la perte maximale de session reste toujours active.</p>
+    <p class="note" id="applied"></p>
+  </section>
+
+  <section class="card" aria-label="Bot">
+    <h2>Bot</h2>
+    <div class="grid2"><button class="b-start" id="startBtn">▶ Start</button><button class="b-stop" id="stopBtn" disabled>■ Stop</button></div>
+    <button class="b-urg" id="urgBtn" disabled>Arrêt d'urgence</button>
+    <ul class="err" id="startErr"></ul>
+    <div class="stats">
+      <div><span>Transactions</span><b id="kTrades">—</b></div><div><span>Résultat net</span><b id="kNet">—</b></div>
+      <div><span>Gagnées</span><b id="kWins" class="okc">—</b></div><div><span>Perdues</span><b id="kLosses" class="badc">—</b></div>
+    </div>
+    <p class="note">État : <b id="kState">prêt</b></p>
+    <p class="note" id="kRisk"></p>
+    <div class="chart"><canvas id="pnl" aria-label="Résultat cumulé de la session"></canvas></div>
+  </section>
+
+  <section class="card full" aria-label="Historique des opérations">
+    <h2>Historique des opérations</h2>
+    <div class="tw"><table><thead><tr><th>Heure</th><th>Contrat</th><th>Mise</th><th>Résultat</th><th>Gain/perte</th><th>ID</th></tr></thead><tbody id="history"></tbody></table></div>
+  </section>
+
+  <section class="card full" aria-label="Journal">
+    <h2>Journal</h2>
+    <ul class="journal" id="journal"></ul>
+    <p class="note">Les contrats Digits de Deriv ont une espérance négative : la marge de Deriv est incluse dans chaque paiement. Ce bot ne garantit aucun gain.</p>
+  </section>
+</div>
+<script>
+"use strict";
+(() => {
+const D = (() => {
+// Digit Pro — moteur d'analyse et règles de session (fonctions pures, testables).
+// Ce fichier est inclus tel quel dans digit-pro/index.html par scripts/build-digit-pro.mjs.
+
+const STRATEGIES = {
+  matches: { label: "Matches (chiffre le plus fréquent)", type: "DIGITMATCH", needsDigit: true, p: 0.1 },
+  differs: { label: "Differs (chiffre le moins fréquent)", type: "DIGITDIFF", needsDigit: true, p: 0.9 },
+  even:    { label: "Even (pair)", type: "DIGITEVEN", needsDigit: false, p: 0.5 },
+  odd:     { label: "Odd (impair)", type: "DIGITODD", needsDigit: false, p: 0.5 },
+};
+const MARKETS = [
+  { symbol: "R_10", label: "Volatility 10 Index" }, { symbol: "1HZ10V", label: "Volatility 10 (1s) Index" },
+  { symbol: "R_25", label: "Volatility 25 Index" }, { symbol: "1HZ25V", label: "Volatility 25 (1s) Index" },
+  { symbol: "R_50", label: "Volatility 50 Index" }, { symbol: "1HZ50V", label: "Volatility 50 (1s) Index" },
+  { symbol: "R_75", label: "Volatility 75 Index" }, { symbol: "1HZ75V", label: "Volatility 75 (1s) Index" },
+  { symbol: "R_100", label: "Volatility 100 Index" }, { symbol: "1HZ100V", label: "Volatility 100 (1s) Index" },
+];
+const DEFAULTS = { stake: 1, maxTrades: 5, profitTarget: 2, maxLoss: 5, pauseSec: 3, maxExposure: 5, window: 100 };
+
+function lastDigit(quote, pip) { const s = Number(quote).toFixed(pip); return +s[s.length - 1]; }
+function digitCounts(d) { const c = new Array(10).fill(0); for (const x of d) c[x]++; return c; }
+
+/* ---- statistics ---- */
+function lgamma(x) {
+  const g = 7, c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+  if (x < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * x)) - lgamma(1 - x);
+  x -= 1; let a = c[0]; const t = x + g + 0.5; for (let i = 1; i < 9; i++) a += c[i] / (x + i);
+  return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(a);
+}
+function gammaQ(a, x) {
+  if (x <= 0) return 1;
+  const lead = -x + a * Math.log(x) - lgamma(a);
+  if (x < a + 1) { let ap = a, sum = 1 / a, del = sum; for (let n = 0; n < 1000; n++) { ap++; del *= x / ap; sum += del; if (Math.abs(del) < Math.abs(sum) * 1e-15) break; } return Math.max(0, 1 - sum * Math.exp(lead)); }
+  const tiny = 1e-300; let b = x + 1 - a, c = 1 / tiny, d = 1 / b, h = d;
+  for (let i = 1; i < 1000; i++) { const an = -i * (i - a); b += 2; d = an * d + b; if (Math.abs(d) < tiny) d = tiny; c = b + an / c; if (Math.abs(c) < tiny) c = tiny; d = 1 / d; const del = d * c; h *= del; if (Math.abs(del - 1) < 1e-15) break; }
+  return Math.min(1, Math.exp(lead) * h);
+}
+function chiSquareDigits(counts) {
+  const n = counts.reduce((a, b) => a + b, 0); if (n < 50) return null;
+  const e = n / 10; let chi = 0; for (const o of counts) chi += (o - e) * (o - e) / e;
+  return { chi, df: 9, p: gammaQ(4.5, chi / 2), n };
+}
+function wilson(k, n, z = 1.96) {
+  if (!n) return [NaN, NaN];
+  const p = k / n, d = 1 + z * z / n, c = p + z * z / (2 * n), r = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n));
+  return [Math.max(0, (c - r) / d), Math.min(1, (c + r) / d)];
+}
+
+/* ---- strategy rules ---- */
+// Decide the contract from the last `window` digits only (never the digit being predicted).
+function pick(strategy, win) {
+  const s = STRATEGIES[strategy]; if (!s) throw new Error("stratégie inconnue");
+  if (!s.needsDigit) return { type: s.type, barrier: null };
+  const c = digitCounts(win); let best = 0;
+  for (let d = 1; d < 10; d++) if (strategy === "matches" ? c[d] > c[best] : c[d] < c[best]) best = d;
+  return { type: s.type, barrier: best };
+}
+function wins(type, barrier, digit) {
+  if (type === "DIGITMATCH") return digit === barrier;
+  if (type === "DIGITDIFF") return digit !== barrier;
+  if (type === "DIGITEVEN") return digit % 2 === 0;
+  if (type === "DIGITODD") return digit % 2 === 1;
+  throw new Error("type inconnu");
+}
+// payoutRatio = payout / stake as quoted by Deriv (e.g. Matches ≈ 9.x, Even ≈ 1.95)
+function backtest(digits, strategy, N, payoutRatio, from, to) {
+  let n = 0, w = 0;
+  for (let t = Math.max(from, N); t < to; t++) {
+    const p = pick(strategy, digits.slice(t - N, t));
+    n++; if (wins(p.type, p.barrier, digits[t])) w++;
+  }
+  const hit = n ? w / n : NaN, ci = wilson(w, n);
+  return { n, wins: w, losses: n - w, hit, hitCI: ci, roi: hit * payoutRatio - 1, roiCI: [ci[0] * payoutRatio - 1, ci[1] * payoutRatio - 1] };
+}
+const VALID = { minDigits: 600, trainFrac: 0.6, windows: [25, 50, 100, 200], minTest: 300 };
+function validateStrategy(digits, strategy, payoutRatio) {
+  const n = digits.length, s = STRATEGIES[strategy];
+  const theoEV = s.p * payoutRatio - 1;
+  if (!(payoutRatio > 1)) return { status: "error", reason: "Paiement Deriv inconnu : impossible d'évaluer la stratégie." };
+  if (n < VALID.minDigits) return { status: "insufficient", n, need: VALID.minDigits, theoEV };
+  const split = Math.floor(n * VALID.trainFrac);
+  let best = null;
+  for (const N of VALID.windows) {
+    if (N >= split) continue;
+    const tr = backtest(digits, strategy, N, payoutRatio, N, split);
+    if (!best || tr.hit > best.train.hit) best = { N, train: tr };
+  }
+  const test = backtest(digits, strategy, best.N, payoutRatio, split, n);
+  const edge = test.n >= VALID.minTest && test.roiCI[0] > 0;
+  return { status: "done", n, split, N: best.N, train: best.train, test, theoP: s.p, theoEV, payoutRatio, edge,
+    fit: chiSquareDigits(digitCounts(digits)) };
+}
+
+/* ---- session rules ---- */
+function validateParams(p) {
+  const e = [];
+  const num = (k, lo, hi, label) => { const v = p[k]; if (!(typeof v === "number" && isFinite(v)) || v < lo || v > hi) e.push(`${label} : entre ${lo} et ${hi}`); };
+  num("stake", 0.35, 1000, "Mise"); num("maxTrades", 1, 100, "Nombre maximal de transactions");
+  num("profitTarget", 0.01, 100000, "Objectif de bénéfice"); num("maxLoss", 0.35, 100000, "Perte maximale");
+  num("pauseSec", 1, 3600, "Pause entre transactions (s)"); num("maxExposure", 0.35, 100000, "Montant maximal exposé");
+  num("window", 10, 1000, "Ticks analysés");
+  if (!e.length && p.stake > p.maxLoss) e.push("La mise ne peut pas dépasser la perte maximale.");
+  if (!e.length && p.stake > p.maxExposure) e.push("La mise ne peut pas dépasser le montant maximal exposé.");
+  if (p.maxTrades % 1) e.push("Nombre maximal de transactions : nombre entier.");
+  return e;
+}
+// Checked after every settled contract
+function stopReason(st, p) {
+  if (st.done >= p.maxTrades) return `${st.done}/${p.maxTrades} transactions terminées`;
+  if (st.net >= p.profitTarget) return `objectif de bénéfice atteint (${st.net.toFixed(2)})`;
+  if (st.net <= -p.maxLoss) return `perte maximale atteinte (${st.net.toFixed(2)})`;
+  return null;
+}
+// Checked before every purchase: the worst case of the next trade must stay inside the limits
+function canBuy(st, p, balance) {
+  const r = stopReason(st, p); if (r) return { ok: false, reason: r };
+  if (st.open) return { ok: false, reason: "un contrat est déjà ouvert" };
+  if (st.net - p.stake < -p.maxLoss - 1e-9) return { ok: false, reason: "la prochaine mise pourrait dépasser la perte maximale" };
+  if (p.stake > p.maxExposure) return { ok: false, reason: "mise supérieure au montant maximal exposé" };
+  if (!(balance >= p.stake)) return { ok: false, reason: "solde insuffisant" };
+  return { ok: true };
+}
+
+return { STRATEGIES, MARKETS, DEFAULTS, lastDigit, digitCounts, gammaQ, chiSquareDigits, wilson, pick, wins, backtest, VALID, validateStrategy, validateParams, stopReason, canBuy };
+})();
+// Digit Pro — client Deriv (API WebSocket officielle) et bot de session.
+// Le jeton API n'est jamais enregistré ni écrit dans le journal : il reste en mémoire pendant la visite.
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const money = (v, cur) => (Number.isFinite(v) ? v.toFixed(2) : "—") + (cur ? " " + cur : "");
+const pct = x => Number.isFinite(x) ? (x * 100).toFixed(1).replace(".", ",") + " %" : "—";
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ================= Deriv WebSocket client ================= */
+class DerivClient {
+  constructor(onEvent) { this.onEvent = onEvent; this.ws = null; this.reqId = 1; this.pending = new Map(); this.manual = false; this.retry = 0; this.listeners = new Set(); }
+  get open() { return this.ws && this.ws.readyState === 1; }
+  connect(url, appId) {
+    this.url = url; this.appId = appId; this.manual = false;
+    return new Promise((resolve, reject) => {
+      let ws;
+      try { ws = new WebSocket(`${url}?app_id=${encodeURIComponent(appId)}&l=FR`); } catch (e) { reject({ message: "Adresse du serveur invalide." }); return; }
+      this.ws = ws; let opened = false;
+      const to = setTimeout(() => { if (!opened) { try { ws.close(); } catch {} reject({ message: "Deriv ne répond pas (délai dépassé)." }); } }, 12000);
+      ws.onopen = () => { opened = true; clearTimeout(to); this.retry = 0; clearInterval(this.ping); this.ping = setInterval(() => this.open && this.send({ ping: 1 }).catch(() => {}), 30000); resolve(); };
+      ws.onerror = () => { if (!opened) { clearTimeout(to); reject({ message: "Connexion à Deriv impossible." }); } };
+      ws.onmessage = ev => this.handle(ev.data);
+      ws.onclose = () => {
+        clearInterval(this.ping);
+        for (const [, p] of this.pending) p.reject({ code: "Disconnected", message: "Connexion perdue" });
+        this.pending.clear();
+        this.onEvent("closed", { manual: this.manual });
+        if (!this.manual && opened) this.scheduleReconnect();
+      };
+    });
+  }
+  scheduleReconnect() {
+    const delay = Math.min(30000, 1000 * 2 ** this.retry++);
+    this.onEvent("reconnecting", { delay });
+    clearTimeout(this.rt);
+    this.rt = setTimeout(async () => { try { await this.connect(this.url, this.appId); this.onEvent("reconnected"); } catch { this.scheduleReconnect(); } }, delay);
+  }
+  close() { this.manual = true; clearTimeout(this.rt); clearInterval(this.ping); try { this.ws && this.ws.close(); } catch {} }
+  handle(raw) {
+    let m; try { m = JSON.parse(raw); } catch { return; }
+    const p = m.req_id != null && this.pending.get(m.req_id);
+    if (p && !(m.subscription && p.done)) {
+      p.done = true; this.pending.delete(m.req_id); clearTimeout(p.to);
+      if (m.error) p.reject({ code: m.error.code, message: m.error.message }); else p.resolve(m);
+    }
+    for (const l of this.listeners) l(m);
+  }
+  send(req, timeoutMs = 15000) {
+    return new Promise((resolve, reject) => {
+      if (!this.open) { reject({ code: "Disconnected", message: "Non connecté à Deriv" }); return; }
+      const req_id = this.reqId++;
+      const to = setTimeout(() => { this.pending.delete(req_id); reject({ code: "Timeout", message: "Deriv n'a pas répondu à temps" }); }, timeoutMs);
+      this.pending.set(req_id, { resolve, reject, to });
+      this.ws.send(JSON.stringify(Object.assign({}, req, { req_id })));
+    });
+  }
+  on(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
+}
+
+/* ================= state ================= */
+const S = {
+  client: null, token: "", account: null, balance: NaN, currency: "USD", connected: false,
+  symbol: "1HZ10V", pip: 2, digits: [], price: NaN, ticks: 0, lastUpdate: null, available: null,
+  analysis: null, params: { ...D.DEFAULTS }, strategy: "matches",
+  session: null, running: false, stopping: false, emergency: false, pendingBuy: null, trades: [], journal: [],
+};
+const log = (txt, kind = "") => { S.journal.unshift({ at: new Date(), txt, kind }); if (S.journal.length > 200) S.journal.pop(); renderJournal(); };
+
+/* ================= connection ================= */
+function onClientEvent(type, d) {
+  if (type === "closed") { S.connected = false; renderStatus(); if (!d.manual) log("Connexion perdue avec Deriv.", "bad"); }
+  if (type === "reconnecting") { log(`Nouvelle tentative de connexion dans ${Math.round(d.delay / 1000)} s…`); renderStatus("Reconnexion…"); }
+  if (type === "reconnected") afterReconnect();
+}
+async function connect() {
+  const url = $("apiUrl").value.trim() || "wss://ws.derivws.com/websockets/v3", appId = $("appId").value.trim() || "1089";
+  S.token = $("token").value.trim(); $("token").value = "";
+  if (S.client) S.client.close();
+  S.client = new DerivClient(onClientEvent); S.client.on(onMessage);
+  renderStatus("Connexion…");
+  try {
+    await S.client.connect(url, appId);
+    S.connected = true; log("Connecté au serveur Deriv.", "ok");
+    if (S.token) await authorize();
+    await loadMarket();
+  } catch (e) { S.connected = false; log("Échec de connexion : " + (e.message || "erreur"), "bad"); }
+  renderAll();
+}
+async function authorize() {
+  try {
+    const r = await S.client.send({ authorize: S.token });
+    const a = r.authorize;
+    S.account = { loginid: a.loginid, isVirtual: !!a.is_virtual, currency: a.currency, name: a.fullname || "" };
+    S.currency = a.currency || "USD"; S.balance = Number(a.balance);
+    log(`Compte ${a.loginid} autorisé (${a.is_virtual ? "DÉMO" : "RÉEL"}, ${S.currency}).`, "ok");
+    try { await S.client.send({ balance: 1, subscribe: 1 }); } catch {}
+  } catch (e) {
+    S.account = null; S.token = "";
+    log("Jeton refusé par Deriv : " + (e.message || e.code) + ". Vérifiez qu'il a les droits Read et Trade.", "bad");
+  }
+}
+function disconnect() { S.running = false; if (S.client) S.client.close(); S.connected = false; S.account = null; S.token = ""; log("Déconnecté."); renderAll(); }
+
+function onMessage(m) {
+  if (m.msg_type === "tick" && m.tick && m.tick.symbol === S.symbol) {
+    S.pip = m.tick.pip_size ?? S.pip; S.price = m.tick.quote; S.ticks++; S.lastUpdate = new Date();
+    S.digits.push(D.lastDigit(m.tick.quote, S.pip)); if (S.digits.length > 5000) S.digits.shift();
+    renderDigits();
+  }
+  if (m.msg_type === "balance" && m.balance) { S.balance = Number(m.balance.balance); renderAccount(); }
+}
+async function loadMarket() {
+  if (!S.client || !S.client.open) return;
+  try { await S.client.send({ forget_all: "ticks" }); } catch {}
+  S.digits = []; S.ticks = 0; S.analysis = null;
+  try {
+    const h = await S.client.send({ ticks_history: S.symbol, count: 1000, end: "latest", style: "ticks", subscribe: 1 });
+    S.pip = h.pip_size ?? S.pip; S.digits = h.history.prices.map(p => D.lastDigit(p, S.pip)); S.ticks = S.digits.length; S.price = h.history.prices.at(-1); S.lastUpdate = new Date();
+    log(`${S.digits.length} ticks réels reçus pour ${S.symbol}.`, "ok");
+  } catch (e) { log(`Ticks indisponibles pour ${S.symbol} : ${e.message}`, "bad"); }
+  try {
+    const c = await S.client.send({ contracts_for: S.symbol, currency: S.currency, product_type: "basic" });
+    const types = new Set((c.contracts_for.available || []).filter(x => x.contract_category === "digits").map(x => x.contract_type));
+    S.available = types;
+    log("Contrats Digits disponibles : " + ([...types].join(", ") || "aucun"), types.size ? "ok" : "bad");
+  } catch (e) { S.available = new Set(); log(`Contrats indisponibles pour ${S.symbol} : ${e.message}`, "bad"); }
+  renderAll();
+}
+
+/* ================= analysis ================= */
+async function quote(strategy, stake, barrier) {
+  const s = D.STRATEGIES[strategy];
+  const req = { proposal: 1, amount: stake, basis: "stake", contract_type: s.type, currency: S.currency, duration: 1, duration_unit: "t", symbol: S.symbol };
+  if (s.needsDigit) req.barrier = String(barrier ?? 5);
+  return (await S.client.send(req)).proposal;
+}
+async function analyse() {
+  if (!S.connected) { log("Connectez-vous d'abord à Deriv.", "bad"); return; }
+  if (S.available && !S.available.has(D.STRATEGIES[S.strategy].type)) { log("Ce contrat n'est pas proposé sur ce marché.", "bad"); return; }
+  $("analyseBtn").disabled = true; S.analysis = { status: "running" }; renderAnalysis();
+  try {
+    const h = await S.client.send({ ticks_history: S.symbol, count: 5000, end: "latest", style: "ticks" }, 30000);
+    const digits = h.history.prices.map(p => D.lastDigit(p, h.pip_size ?? S.pip));
+    const pr = await quote(S.strategy, 1);
+    const ratio = Number(pr.payout) / Number(pr.ask_price);
+    S.analysis = Object.assign(D.validateStrategy(digits, S.strategy, ratio), { at: new Date(), payout: Number(pr.payout), ask: Number(pr.ask_price), symbol: S.symbol, strategy: S.strategy });
+    log(`Analyse ${S.strategy} sur ${digits.length} ticks réels : ${S.analysis.edge ? "avantage observé hors échantillon (à confirmer)" : "aucun avantage démontré"}.`, S.analysis.edge ? "ok" : "");
+  } catch (e) { S.analysis = { status: "error", reason: e.message || "erreur" }; log("Analyse impossible : " + (e.message || e.code), "bad"); }
+  $("analyseBtn").disabled = false; renderAll();
+}
+
+/* ================= session bot ================= */
+function readParams() {
+  const n = id => Number(String($(id).value).replace(",", "."));
+  return { stake: n("pStake"), maxTrades: n("pMaxTrades"), profitTarget: n("pTarget"), maxLoss: n("pMaxLoss"), pauseSec: n("pPause"), maxExposure: n("pExposure"), window: n("pWindow") };
+}
+function startCheck() {
+  const p = readParams(), errs = D.validateParams(p), mode = $("mode").value;
+  if (!S.connected) errs.push("Pas connecté à Deriv.");
+  if (!S.account) errs.push("Aucun compte autorisé : entrez un jeton API Deriv.");
+  if (S.available && !S.available.has(D.STRATEGIES[S.strategy].type)) errs.push("Contrat non disponible sur ce marché.");
+  if (S.digits.length < p.window) errs.push(`Il faut au moins ${p.window} ticks reçus (actuellement ${S.digits.length}).`);
+  const a = S.analysis, analysed = a && a.status === "done" && a.symbol === S.symbol && a.strategy === S.strategy;
+  if (mode === "demo") {
+    if (S.account && !S.account.isVirtual) errs.push("Mode Démo choisi mais le compte connecté est RÉEL : connectez un jeton de compte démo.");
+    if (!(analysed && a.edge) && !$("execTest").checked) errs.push("Aucun avantage validé : cochez « test technique en démo » pour lancer quand même en démo.");
+  } else {
+    if (S.account && S.account.isVirtual) errs.push("Mode Réel choisi mais le compte connecté est DÉMO.");
+    if (!analysed) errs.push("Mode Réel : lancez d'abord l'analyse de cette stratégie sur ce marché.");
+    else if (!a.edge) errs.push("Mode Réel bloqué : l'analyse hors échantillon ne montre aucun avantage après le paiement Deriv.");
+    if (!$("realOk").checked || $("realConfirm").value.trim().toUpperCase() !== "REEL") errs.push("Mode Réel : cochez la case de risque et tapez REEL.");
+  }
+  return { p, errs, mode };
+}
+async function start() {
+  const { p, errs, mode } = startCheck();
+  $("startErr").innerHTML = errs.map(e => `<li>${esc(e)}</li>`).join("");
+  if (errs.length) { log("Démarrage refusé : " + errs.join(" · "), "bad"); return; }
+  S.params = p; S.mode = mode; S.running = true; S.stopping = false; S.emergency = false;
+  S.session = { startedAt: new Date(), done: 0, wins: 0, losses: 0, net: 0, open: null, staked: 0, stopReason: null, startBalance: S.balance };
+  S.trades = [];
+  log(`Session démarrée en ${mode === "demo" ? "DÉMO" : "RÉEL"} : ${D.STRATEGIES[S.strategy].label}, mise ${p.stake}, max ${p.maxTrades} transactions, objectif +${p.profitTarget}, perte max −${p.maxLoss}.`, "ok");
+  renderAll();
+  loop();
+}
+function stop(reason, emergency) {
+  if (!S.session) return;
+  S.running = false; S.emergency = !!emergency; S.session.stopReason = S.session.stopReason || reason;
+  if (S.session.open) { S.stopping = true; log((emergency ? "ARRÊT D'URGENCE" : "Arrêt demandé") + " : aucune nouvelle transaction. Le contrat ouvert se termine tout seul (un contrat Digits de 1 tick ne peut pas être annulé).", "bad"); }
+  else log((emergency ? "ARRÊT D'URGENCE" : "Session arrêtée") + " : " + reason + ".", emergency ? "bad" : "");
+  renderAll();
+}
+async function interruptibleSleep(ms) { const end = Date.now() + ms; while (S.running && Date.now() < end) await sleep(Math.min(250, end - Date.now())); }
+
+async function loop() {
+  while (S.running) {
+    if (!S.client.open) { await sleep(500); continue; }               // wait for reconnection, never trade blind
+    const st = S.session, p = S.params;
+    const chk = D.canBuy(st, p, S.balance);
+    if (!chk.ok) { stop(chk.reason); break; }
+    const win = S.digits.slice(-p.window);
+    if (win.length < p.window) { await sleep(500); continue; }
+    const choice = D.pick(S.strategy, win);
+    let pr;
+    try { pr = await quote(S.strategy, p.stake, choice.barrier); }
+    catch (e) { log("Proposition refusée : " + (e.message || e.code), "bad"); await interruptibleSleep(3000); continue; }
+    if (!S.running) break;
+    if (Math.abs(Number(pr.ask_price) - p.stake) > 1e-9) { stop("prix proposé différent de la mise (" + pr.ask_price + ")"); break; }
+    // one purchase at a time; never re-sent automatically
+    S.pendingBuy = { at: Math.floor(Date.now() / 1000), stake: p.stake, type: choice.type, barrier: choice.barrier };
+    let buy;
+    try { buy = (await S.client.send({ buy: pr.id, price: p.stake }, 20000)).buy; }
+    catch (e) {
+      if (e.code === "Disconnected" || e.code === "Timeout") {
+        log("Réponse d'achat perdue (réseau). Vérification sur le compte avant toute nouvelle transaction…", "bad");
+        buy = await reconcilePendingBuy();
+        if (!buy) { S.pendingBuy = null; if (S.running) await interruptibleSleep(p.pauseSec * 1000); continue; }
+      } else { S.pendingBuy = null; log("Achat refusé : " + (e.message || e.code), "bad"); await interruptibleSleep(3000); continue; }
+    }
+    S.pendingBuy = null;
+    const trade = { id: buy.contract_id, at: new Date(), type: choice.type, barrier: choice.barrier, stake: Number(buy.buy_price), payout: Number(buy.payout ?? pr.payout), status: "open", profit: 0 };
+    st.open = trade; st.staked += trade.stake; S.trades.unshift(trade);
+    log(`Achat #${trade.id} : ${trade.type}${trade.barrier != null ? " " + trade.barrier : ""}, mise ${trade.stake}.`);
+    renderAll();
+    await waitSettlement(trade);
+    st.open = null; st.done++; st.net = Math.round((st.net + trade.profit) * 100) / 100;
+    if (trade.status === "won") st.wins++; else st.losses++;
+    log(`Contrat #${trade.id} ${trade.status === "won" ? "GAGNÉ" : "PERDU"} : ${trade.profit >= 0 ? "+" : ""}${trade.profit.toFixed(2)} · résultat de session ${st.net.toFixed(2)}.`, trade.status === "won" ? "ok" : "bad");
+    renderAll();
+    if (S.stopping) { S.stopping = false; log("Session arrêtée : " + st.stopReason + "."); renderAll(); break; }
+    const r = D.stopReason(st, p);
+    if (r) { stop(r); break; }
+    await interruptibleSleep(p.pauseSec * 1000);
+  }
+  S.running = false; renderAll();
+}
+function waitSettlement(trade) {
+  return new Promise(resolve => {
+    let off = null;
+    const finish = poc => {
+      if (!poc || !poc.is_sold || trade.status !== "open") return;
+      trade.status = poc.status === "won" || Number(poc.profit) > 0 ? "won" : "lost";
+      trade.profit = Number(poc.profit); trade.exitDigit = poc.exit_tick_display_value != null ? D.lastDigit(poc.exit_tick_display_value, S.pip) : null;
+      off && off(); S.waiting = null; resolve();
+    };
+    off = S.client.on(m => { if (m.msg_type === "proposal_open_contract" && m.proposal_open_contract && m.proposal_open_contract.contract_id === trade.id) finish(m.proposal_open_contract); });
+    S.waiting = { trade, resubscribe: () => S.client.send({ proposal_open_contract: 1, contract_id: trade.id, subscribe: 1 }).then(r => finish(r.proposal_open_contract)).catch(() => {}) };
+    S.waiting.resubscribe();
+  });
+}
+// After a lost buy response: look for a contract bought at that moment. Adopt it if found; never buy twice.
+async function reconcilePendingBuy() {
+  const pb = S.pendingBuy;
+  for (let i = 0; i < 60 && !S.client.open; i++) await sleep(500);
+  if (!S.client.open) { stop("connexion perdue pendant un achat : vérifiez votre compte Deriv"); return null; }
+  if (S.token && !S.account) await authorize();
+  try {
+    const port = await S.client.send({ portfolio: 1 });
+    const c = (port.portfolio.contracts || []).find(x => x.purchase_time >= pb.at - 5 && x.contract_type === pb.type);
+    if (c) { log(`Contrat #${c.contract_id} retrouvé sur le compte : il est suivi, aucun nouvel achat.`, "ok"); return { contract_id: c.contract_id, buy_price: c.buy_price, payout: c.payout }; }
+    const pt = await S.client.send({ profit_table: 1, limit: 5, sort: "DESC", description: 1 });
+    const t = (pt.profit_table.transactions || []).find(x => x.purchase_time >= pb.at - 5);
+    if (t) { log(`Contrat #${t.contract_id} déjà terminé retrouvé : il est compté, aucun nouvel achat.`, "ok"); return { contract_id: t.contract_id, buy_price: t.buy_price, payout: t.payout }; }
+    log("Aucun achat trouvé sur le compte : la transaction n'a pas eu lieu.");
+    return null;
+  } catch (e) { stop("vérification impossible après coupure : " + (e.message || e.code)); return null; }
+}
+async function afterReconnect() {
+  S.connected = true; log("Reconnecté à Deriv.", "ok");
+  if (S.token) { S.account = null; await authorize(); }
+  try {
+    const h = await S.client.send({ ticks_history: S.symbol, count: 1000, end: "latest", style: "ticks", subscribe: 1 });
+    S.digits = h.history.prices.map(p => D.lastDigit(p, h.pip_size ?? S.pip));
+  } catch {}
+  if (S.waiting) S.waiting.resubscribe();
+  renderAll();
+}
+
+/* ================= rendering ================= */
+function renderStatus(txt) {
+  const el = $("connPill");
+  if (txt) { el.className = "pill warn"; el.textContent = txt; return; }
+  if (!S.connected) { el.className = "pill bad"; el.textContent = "Hors ligne"; }
+  else if (!S.account) { el.className = "pill warn"; el.textContent = "Connecté · lecture seule"; }
+  else { el.className = "pill " + (S.account.isVirtual ? "ok" : "real"); el.textContent = "Connecté · " + (S.account.isVirtual ? "DÉMO" : "RÉEL"); }
+  $("mktPill").textContent = (D.MARKETS.find(m => m.symbol === S.symbol) || {}).label || S.symbol;
+}
+function renderAccount() {
+  $("acct").innerHTML = S.account
+    ? `<div><span>Compte</span><b>${esc(S.account.loginid)}</b></div><div><span>Type</span><b class="${S.account.isVirtual ? "okc" : "realc"}">${S.account.isVirtual ? "Démo" : "Réel"}</b></div><div><span>Solde</span><b>${money(S.balance, S.currency)}</b></div>`
+    : `<p class="note">${S.connected ? "Lecture seule : ticks réels sans compte. Entrez un jeton API pour trader en démo." : "Non connecté."}</p>`;
+}
+function renderDigits() {
+  const p = Number($("pWindow").value) || 100, w = S.digits.slice(-p), c = D.digitCounts(w), n = w.length;
+  const choice = n >= 10 && D.STRATEGIES[S.strategy].needsDigit ? D.pick(S.strategy, w).barrier : null;
+  $("digits").innerHTML = c.map((k, d) => {
+    const f = n ? k / n : 0, cls = d === choice ? "pick" : f > 0.12 ? "hi" : f < 0.08 ? "lo" : "mid";
+    return `<div class="dg ${cls}"><b>${d}</b><span>${n ? pct(f) : "—"}</span><i style="width:${Math.min(100, f * 500)}%"></i></div>`;
+  }).join("");
+  const last = S.digits.at(-1); let even = 0; for (const x of w) if (x % 2 === 0) even++;
+  $("cur").textContent = last ?? "—"; $("price").textContent = Number.isFinite(S.price) ? Number(S.price).toFixed(S.pip) : "—";
+  $("ticks").textContent = S.ticks; $("eo").textContent = n ? Math.round(even / n * 100) + " / " + (100 - Math.round(even / n * 100)) + " %" : "—";
+  $("upd").textContent = S.lastUpdate ? S.lastUpdate.toLocaleTimeString("fr-FR") : "—";
+  const fit = D.chiSquareDigits(c); $("fit").textContent = fit ? (fit.p < 0.01 ? "écart inhabituel (p = " + fit.p.toFixed(3) + ")" : "écart normal (p = " + fit.p.toFixed(2) + ")") : "pas assez de ticks";
+}
+function renderAnalysis() {
+  const a = S.analysis, el = $("analysis");
+  if (!a) { el.innerHTML = `<p class="note">Appuyez sur <b>Analyser</b> : le moteur charge jusqu'à 5 000 ticks réels, demande à Deriv le paiement réel de la stratégie, puis teste la règle sur des ticks qu'il n'a pas utilisés pour la choisir.</p>`; return; }
+  if (a.status === "running") { el.innerHTML = `<p class="note">Analyse en cours…</p>`; return; }
+  if (a.status === "error") { el.innerHTML = `<p class="bad">Analyse impossible : ${esc(a.reason)}</p>`; return; }
+  if (a.status === "insufficient") { el.innerHTML = `<p class="verdict">Données insuffisantes</p><p class="note">${a.n} ticks reçus, ${a.need} nécessaires.</p>`; return; }
+  const t = a.test, r = x => pct(x), ci = c => `[${r(c[0])} ; ${r(c[1])}]`;
+  el.innerHTML = `<p class="verdict ${a.edge ? "okc" : "badc"}">${a.edge ? "Avantage observé hors échantillon — à confirmer" : "Stratégie refusée : aucun avantage démontré"}</p>
+    <dl class="kv">
+      <dt>Données</dt><dd>${a.n} ticks réels de ${esc(a.symbol)} · ${a.at.toLocaleTimeString("fr-FR")}</dd>
+      <dt>Paiement Deriv</dt><dd>${a.payout.toFixed(2)} pour ${a.ask.toFixed(2)} misé (×${a.payoutRatio.toFixed(3)})</dd>
+      <dt>Probabilité théorique</dt><dd>${r(a.theoP)} · résultat moyen théorique ${a.theoEV >= 0 ? "+" : ""}${a.theoEV.toFixed(3)} par 1 misé</dd>
+      <dt>Entraînement</dt><dd>${a.split} premiers ticks · fenêtre choisie : ${a.N} ticks · réussite ${r(a.train.hit)}</dd>
+      <dt>Test (jamais vu)</dt><dd>${t.n} transactions simulées · réussite ${r(t.hit)} ${ci(t.hitCI)}</dd>
+      <dt>Rendement test</dt><dd>${t.roi >= 0 ? "+" : ""}${(t.roi * 100).toFixed(1)} % par mise ${ci(t.roiCI)}</dd>
+      <dt>Conformité</dt><dd>${a.fit ? "khi² p = " + a.fit.p.toFixed(3) : "—"}</dd>
+    </dl>
+    <p class="note">${a.edge ? "Le rendement reste positif sur des ticks non utilisés pour choisir la règle. Cela peut encore venir du hasard : recommencez sur de nouveaux ticks." : "Sur les ticks de test, la règle ne bat pas la marge de Deriv. Le mode Réel reste bloqué ; un test technique est possible en démo."}</p>`;
+}
+function renderSession() {
+  const s = S.session, cur = S.currency;
+  $("kTrades").textContent = s ? `${s.done} / ${S.params.maxTrades}` : "—";
+  $("kWins").textContent = s ? s.wins : "—"; $("kLosses").textContent = s ? s.losses : "—";
+  const n = $("kNet"); n.textContent = s ? (s.net >= 0 ? "+" : "") + money(s.net, cur) : "—"; n.className = s ? (s.net >= 0 ? "okc" : "badc") : "";
+  $("kState").textContent = S.running ? (s && s.open ? "contrat ouvert" : "en marche") : S.stopping ? "arrêt en cours" : s ? "arrêté" + (s.stopReason ? " · " + s.stopReason : "") : "prêt";
+  $("kRisk").textContent = s ? `perte restante avant arrêt : ${money(S.params.maxLoss + s.net, cur)} · exposé : ${money(s.open ? s.open.stake : 0, cur)}` : "—";
+  $("history").innerHTML = S.trades.length ? S.trades.map(t => `<tr><td>${t.at.toLocaleTimeString("fr-FR")}</td><td>${t.type.replace("DIGIT", "")}${t.barrier != null ? " " + t.barrier : ""}</td><td>${t.stake.toFixed(2)}</td><td class="${t.status === "won" ? "okc" : t.status === "lost" ? "badc" : ""}">${t.status === "open" ? "ouvert" : t.status === "won" ? "gagné" : "perdu"}</td><td>${t.status === "open" ? "—" : (t.profit >= 0 ? "+" : "") + t.profit.toFixed(2)}</td><td class="mono">${t.id}</td></tr>`).join("") : `<tr><td colspan="6" class="note">Aucune transaction.</td></tr>`;
+  drawPnl();
+  $("startBtn").disabled = S.running || S.stopping; $("stopBtn").disabled = !S.running; $("urgBtn").disabled = !(S.running || S.stopping);
+  const p = readParams();
+  $("applied").textContent = `Marché ${S.symbol} · ${D.STRATEGIES[S.strategy].label} · mise ${p.stake} · max ${p.maxTrades} transactions · objectif +${p.profitTarget} · perte max −${p.maxLoss} · pause ${p.pauseSec} s · exposition max ${p.maxExposure} · 1 contrat à la fois · aucune martingale`;
+}
+function drawPnl() {
+  const cv = $("pnl"), box = cv.parentElement, dpr = devicePixelRatio || 1, W = box.clientWidth, H = box.clientHeight;
+  cv.width = W * dpr; cv.height = H * dpr; const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const pts = [0]; let acc = 0; for (const t of [...S.trades].reverse()) if (t.status !== "open") { acc += t.profit; pts.push(acc); }
+  cv.dataset.points = pts.length - 1; cv.dataset.last = acc.toFixed(2);
+  const css = getComputedStyle(document.documentElement), col = k => css.getPropertyValue("--" + k).trim();
+  const lim = S.session ? [S.params.profitTarget, -S.params.maxLoss] : [1, -1];
+  const mx = Math.max(...pts, lim[0]), mn = Math.min(...pts, lim[1]), pad = 24, iw = W - pad * 2, ih = H - pad * 2;
+  const y = v => pad + ih - (v - mn) / (mx - mn || 1) * ih, x = i => pad + (pts.length > 1 ? i / (pts.length - 1) : 0) * iw;
+  g.font = "11px ui-monospace,monospace"; g.fillStyle = col("muted");
+  [[0, col("line")], [lim[0], col("ok")], [lim[1], col("bad")]].forEach(([v, c]) => { g.strokeStyle = c; g.setLineDash(v ? [4, 4] : []); g.beginPath(); g.moveTo(pad, y(v)); g.lineTo(W - pad, y(v)); g.stroke(); g.fillText((v > 0 ? "+" : "") + v, 2, y(v) - 3); });
+  g.setLineDash([]); g.strokeStyle = col("accent"); g.lineWidth = 2.5; g.beginPath(); pts.forEach((v, i) => i ? g.lineTo(x(i), y(v)) : g.moveTo(x(i), y(v))); g.stroke();
+  pts.forEach((v, i) => { g.fillStyle = col("accent"); g.beginPath(); g.arc(x(i), y(v), 3, 0, 7); g.fill(); });
+}
+function renderJournal() { $("journal").innerHTML = S.journal.slice(0, 60).map(j => `<li class="${j.kind}"><span>${j.at.toLocaleTimeString("fr-FR")}</span>${esc(j.txt)}</li>`).join(""); }
+function renderStrategies() {
+  const sel = $("strategy");
+  sel.innerHTML = Object.entries(D.STRATEGIES).map(([k, s]) => { const ok = !S.available || S.available.has(s.type); return `<option value="${k}" ${k === S.strategy ? "selected" : ""} ${ok ? "" : "disabled"}>${esc(s.label)}${ok ? "" : " — indisponible"}</option>`; }).join("");
+}
+function renderAll() { renderStatus(); renderAccount(); renderDigits(); renderAnalysis(); renderSession(); renderStrategies(); renderJournal(); $("realBox").hidden = $("mode").value !== "real"; }
+
+/* ================= wiring ================= */
+function init() {
+  $("market").innerHTML = D.MARKETS.map(m => `<option value="${m.symbol}" ${m.symbol === S.symbol ? "selected" : ""}>${esc(m.label)}</option>`).join("");
+  for (const [id, k] of [["pStake", "stake"], ["pMaxTrades", "maxTrades"], ["pTarget", "profitTarget"], ["pMaxLoss", "maxLoss"], ["pPause", "pauseSec"], ["pExposure", "maxExposure"], ["pWindow", "window"]]) $(id).value = D.DEFAULTS[k];
+  $("connectBtn").onclick = connect; $("disconnectBtn").onclick = disconnect;
+  $("market").onchange = e => { if (S.running) { e.target.value = S.symbol; log("Arrêtez la session avant de changer de marché.", "bad"); return; } S.symbol = e.target.value; loadMarket(); renderAll(); };
+  $("strategy").onchange = e => { if (S.running) { renderStrategies(); return; } S.strategy = e.target.value; renderAll(); };
+  $("analyseBtn").onclick = analyse; $("startBtn").onclick = start;
+  $("stopBtn").onclick = () => stop("arrêt manuel"); $("urgBtn").onclick = () => stop("arrêt d'urgence", true);
+  $("mode").onchange = renderAll;
+  document.querySelectorAll("#params input").forEach(i => i.addEventListener("input", () => { if (!S.running) renderSession(); renderDigits(); }));
+  addEventListener("resize", drawPnl);
+  renderAll();
+  // read-only view for tests and debugging; the API token is never exposed
+  window.__digitpro = { get state() { const { token, client, ...rest } = S; return rest; } };
+}
+init();
+
+})();
+</script>
+</body>
+</html>
