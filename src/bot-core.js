@@ -98,6 +98,29 @@ export function historyText(name, rounds, src, k) {
   return `<b>${Math.min(k, rounds.length)} dernières manches · ${esc(name)}</b> (la plus récente en premier, ${rounds.length} au total)\n` + items.join("  ") +
     "\n<i>ᵗ Telegram · ᶜ CSV · ᵏ capture · sans marque : saisie sur le site</i>";
 }
+const fmtE = v => (v < 0 ? "−" : v > 0 ? "+" : "") + Math.abs(v).toFixed(2).replace(".", ",") + " €";
+export function ruleText(name, rounds, m, gales, stake) {
+  const r = E.galeRule(rounds, { m, gales, stake, factor: 2 });
+  const label = `encaisser à ${fmtX(m)}` + (gales ? `, ${gales} gale${gales > 1 ? "s" : ""} (mise ×2 après une perte)` : ", sans gale");
+  const verdict = r.net < 0
+    ? "👉 Bon taux de réussite, mais <b>solde négatif</b> : les rouges coûtent plus que ce que rapportent les greens. Le pourcentage affiché par les canaux de « signaux » ne dit pas combien on perd."
+    : "👉 Solde positif sur ces manches, mais le taux de réussite est celui du hasard pur : rien n'indique que cela continuera. En moyenne, le jeu reprend environ 3 % de chaque mise.";
+  return [
+    `★ <b>Test de la règle : ${esc(label)}</b>`,
+    `Sur vos ${rounds.length} manches réelles · profil « ${esc(name)} »`,
+    "",
+    `Cycles joués : ${r.cycles} · ✅ ${r.greens} greens · ❌ ${r.reds} rouges`,
+    `Taux de réussite : ${fmtP(r.hit)} (hasard pur : ${fmtP(r.theoHit)})`,
+    "",
+    `Mise de départ ${stake.toFixed(2).replace(".", ",")} € :`,
+    `Total misé : ${r.staked.toFixed(2).replace(".", ",")} €`,
+    `<b>Résultat : ${fmtE(r.net)}</b> (${fmtP(r.roi)} de ce qui a été misé · théorie ${fmtP(r.theoRoi)})`,
+    `Perte d'un cycle rouge : ${r.worstLoss.toFixed(2).replace(".", ",")} € · pire série de rouges : ${r.maxRedRun} · plus forte baisse : ${r.maxDrawdown.toFixed(2).replace(".", ",")} €`,
+    "",
+    verdict,
+    "<i>Calcul sur vos manches passées, pas une prédiction. Aucune mise n'est placée.</i>",
+  ].join("\n");
+}
 export const HELP = [
   "<b>Aviator Star Bot</b> — statistiques sur vos manches réelles",
   "",
@@ -105,6 +128,7 @@ export const HELP = [
   "/historique [n] — les n dernières manches (20 par défaut, 50 max)",
   "/stats — statistiques et qualité des données",
   "/signal — STAR BOT SIGNAL : analyse, validation et limites",
+  "/regle 1.5 1 10 — tester une règle de « signal » (encaissement, gales, mise) sur vos manches",
   "/effacer — effacer l'historique du profil (avec confirmation)",
   "/test — vérifier le moteur d'analyse et le stockage",
   "/aide — cette aide",
@@ -116,6 +140,7 @@ export const COMMANDS = [
   { command: "historique", description: "Dernières manches" },
   { command: "stats", description: "Statistiques du profil suivi" },
   { command: "signal", description: "STAR BOT SIGNAL et limites" },
+  { command: "regle", description: "Tester une règle (ex. /regle 1.5 1 10)" },
   { command: "effacer", description: "Effacer l'historique (avec confirmation)" },
   { command: "test", description: "Vérifier le moteur" },
   { command: "aide", description: "Aide" },
@@ -208,6 +233,15 @@ export async function handleMessage(deps, msg) {
   }
   if (cmd === "/stats") { if (!pid) return noData(); const d = await getRounds(S, pid); return send(chatId, statsText(pname, d.rounds)); }
   if (cmd === "/signal") { if (!pid) return noData(); const d = await getRounds(S, pid); return send(chatId, signalText(pname, d.rounds)); }
+  if (cmd === "/regle" || cmd === "/règle") {
+    if (!pid) return noData();
+    const m = args[0] != null ? E.toNum(args[0]) : 1.5, g = args[1] != null ? Number(args[1]) : 1, st = args[2] != null ? E.toNum(args[2]) : 10;
+    if (!(m >= 1.01 && m <= 100) || !Number.isInteger(g) || g < 0 || g > 3 || !(st >= 0.1 && st <= 100000))
+      return send(chatId, "Format : /regle [encaissement] [gales] [mise]\nExemple : /regle 1.5 1 10 = encaisser à 1,5×, 1 gale, mise de départ 10 €.\nEncaissement entre 1,01 et 100 · gales de 0 à 3 · mise entre 0,10 et 100 000.");
+    const d = await getRounds(S, pid);
+    if (d.rounds.length < 30) return send(chatId, `DONNÉES INSUFFISANTES : ${d.rounds.length} manche(s). Il en faut au moins 30 pour tester une règle. Ajoutez-en avec /ajouter.`);
+    return send(chatId, ruleText(pname, d.rounds, m, g, st));
+  }
   if (cmd === "/historique") {
     if (!pid) return noData();
     const k = Math.min(50, Math.max(1, parseInt(args[0], 10) || 20));

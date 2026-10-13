@@ -60,7 +60,7 @@ await step("page d'installation de secours servie", async () => { const t = awai
 await step("installation : webhook posé avec secret", async () => {
   const r = await fetch(BASE + "/api/telegram/connect", { method: "POST", headers: { authorization: "Bearer " + ADMIN_KEY } });
   assert.equal(r.status, 200); const hook = calls.find(c => c.method === "setWebhook"); assert.equal(hook.payload.secret_token, secret);
-  const cmds = calls.find(c => c.method === "setMyCommands").payload.commands.map(c => c.command); for (const k of ["stats", "historique", "ajouter", "signal", "effacer", "test", "aide"]) assert.ok(cmds.includes(k), k);
+  const cmds = calls.find(c => c.method === "setMyCommands").payload.commands.map(c => c.command); for (const k of ["stats", "historique", "ajouter", "signal", "regle", "effacer", "test", "aide"]) assert.ok(cmds.includes(k), k);
 });
 await step("webhook sans secret refusé (403)", async () => { const r = await fetch(BASE + "/telegram/webhook", { method: "POST", body: "{}" }); assert.equal(r.status, 403); });
 await step("permissions : un inconnu est refusé et voit son identifiant", async () => { const { reply } = await say("/stats", STRANGER); assert.equal(reply.chat_id, STRANGER); assert.match(reply.text, /privé/); assert.match(reply.text, new RegExp(String(STRANGER))); });
@@ -90,6 +90,10 @@ await step("/signal : aucun avantage, validation et limites affichées", async (
   const { reply } = await say("/signal"); assert.match(reply.text, /STAR BOT SIGNAL : AUCUN AVANTAGE STATISTIQUE DÉTECTÉ/);
   assert.match(reply.text, /Validation hors échantillon : test sur 90 manches/); assert.match(reply.text, /Observations historiques/); assert.match(reply.text, /Aucun outil ne connaît la prochaine/);
   assert.doesNotMatch(reply.text, /BUY|confiance/i);
+});
+await step("/regle : test d'une règle de signal en euros", async () => {
+  const { reply } = await say("/regle 1.5 1 10"); assert.match(reply.text, /Cycles joués : \d+/); assert.match(reply.text, /hasard pur : 87,5 %/); assert.match(reply.text, /Résultat :/);
+  const bad = await say("/regle 200"); assert.match(bad.reply.text, /Format : \/regle/);
 });
 await step("/test : moteur et stockage vérifiés", async () => { const { reply } = await say("/test"); assert.match(reply.text, /8\/8 vérifications réussies/); assert.match(reply.text, /stockage permanent/); });
 await step("/test n'ajoute rien aux données", async () => { const st = await (await fetch(BASE + "/api/state", { headers: { authorization: "Bearer " + ADMIN_KEY } })).json(); assert.equal(Object.values(st.profiles)[0].rounds.length, 300); });

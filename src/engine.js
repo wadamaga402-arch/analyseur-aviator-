@@ -248,6 +248,28 @@ function scoreLog(log, a){
   });
   return {rows, scored:k, hits, meanEstimate: k?sumP/k:NaN, theory: theoGE(2)};
 }
+/* ---- "signal channel" rule checker: cash out at m, up to g extra tries ("gales") with the stake multiplied by f ---- */
+function galeRule(a, opts){
+  const o=opts||{}, m=o.m||1.5, g=Math.max(0,Math.min(5,Math.floor(o.gales??1))), s=o.stake||1, f=o.factor||2;
+  const n=a.length;
+  let i=0, greens=0, reds=0, staked=0, net=0, peak=0, maxDD=0, redRun=0, maxRedRun=0;
+  while (i<n){
+    let stake=s, won=false, k=0, cs=0, cn=0;
+    for (; k<=g && i<n; k++){
+      cs+=stake;
+      if (a[i]>=m){ cn+=stake*(m-1); won=true; i++; break; }
+      cn-=stake; stake*=f; i++;
+    }
+    if (!won && k<=g) break;                          // ran out of rounds mid-cycle: the incomplete cycle is not counted
+    staked+=cs; net+=cn;
+    if (won) { greens++; redRun=0; } else { reds++; redRun++; if (redRun>maxRedRun) maxRedRun=redRun; }
+    if (net>peak) peak=net; if (peak-net>maxDD) maxDD=peak-net;
+  }
+  const cycles=greens+reds, p=theoGE(m), theoHit=1-Math.pow(1-p, g+1);
+  return {m, gales:g, stake:s, factor:f, cycles, greens, reds, hit: cycles?greens/cycles:NaN, theoHit,
+    staked: Math.round(staked*100)/100, net: Math.round(net*100)/100, roi: staked? net/staked : NaN, theoRoi: RTP-1,
+    maxDrawdown: Math.round(maxDD*100)/100, maxRedRun, worstLoss: f===1 ? s*(g+1) : s*(Math.pow(f,g+1)-1)/(f-1)};
+}
 function demoRound(){
   // Fictitious round drawn from the theoretical crash distribution (RTP 97%)
   const u = Math.random();
@@ -255,4 +277,4 @@ function demoRound(){
   return Math.min(v, 10000);
 }
 
-export {RTP,CATS,catOf,theoGE,theoCat,toNum,validRound,parseList,parseCSV,median,wilson,stats,geRate,dependence,quality,SRC,normSrc,srcCounts,parseCaptureResult,dedupeOverlap,demoRound,gammaQ,chiSquareFit,VAL,streaksBelow2,valRules,simulate,validate,signalState,walkForward,dataQuality,windowStats,logEntry,scoreLog};
+export {RTP,CATS,catOf,theoGE,theoCat,toNum,validRound,parseList,parseCSV,median,wilson,stats,geRate,dependence,quality,SRC,normSrc,srcCounts,parseCaptureResult,dedupeOverlap,demoRound,gammaQ,chiSquareFit,VAL,streaksBelow2,valRules,simulate,validate,signalState,walkForward,dataQuality,windowStats,logEntry,scoreLog,galeRule};

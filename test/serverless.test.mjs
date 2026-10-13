@@ -31,7 +31,7 @@ test("groupes ignorés", async () => { assert.equal(await say("/start", ME, "gro
 test("/start : verrouillé sur le premier compte + menu des commandes", async () => {
   const m = await say("/start"); assert.match(m.text, /verrouillé sur votre compte/); assert.match(m.text, new RegExp(String(ME)));
   const cmds = calls.filter(c => c.method === "setMyCommands").at(-1).params.commands.map(c => c.command);
-  assert.deepEqual(cmds, ["ajouter", "historique", "stats", "signal", "effacer", "test", "aide"]);
+  assert.deepEqual(cmds, ["ajouter", "historique", "stats", "signal", "regle", "effacer", "test", "aide"]);
 });
 test("un autre compte est refusé, même avec /start", async () => {
   for (const t of ["/start", "/stats", "/ajouter 5 5 5", "/effacer oui"]) { const m = await say(t, OTHER); assert.equal(m.chat_id, OTHER); assert.match(m.text, /privé/); }
@@ -57,6 +57,13 @@ test("300 manches : /stats calcule la vraie moyenne, /signal sans avantage", asy
 });
 test("messages sous la limite Telegram de 4096 caractères", async () => {
   for (const t of ["/aide", "/stats", "/signal", "/historique 50", "/test"]) { const m = await say(t); assert.ok(m.text.length < 4096, t + " : " + m.text.length); }
+});
+test("/regle : taux de réussite, euros, comparaison au hasard", async () => {
+  const m = await say("/regle 1.5 1 10");
+  assert.match(m.text, /Test de la règle : encaisser à 1,50×, 1 gale/); assert.match(m.text, /hasard pur : 87,5 %/);
+  assert.match(m.text, /Mise de départ 10,00 €/); assert.match(m.text, /Résultat : [+−]?\d/); assert.doesNotMatch(m.text, /BUY|confiance/i);
+  assert.match((await say("/regle 0.5 9 x")).text, /Format : \/regle/);
+  assert.equal(calls.filter(c => c.method === "setMyCommands").at(-1).params.commands.some(c => c.command === "regle"), true);
 });
 test("/test : 8/8 avec la base Serverless", async () => {
   const m = await say("/test"); assert.match(m.text, /8\/8 vérifications réussies/);

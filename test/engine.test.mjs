@@ -82,3 +82,18 @@ test("historique des analyses : résultat suivant relié à l'estimation", ()=>{
   assert.equal(e1.n,40); assert.ok(e1.p2>0 && e1.p2<1);
   const s=E.scoreLog([e1,e2], a); assert.equal(s.rows[0].next, a[40]); assert.equal(s.rows[1].next, null); assert.equal(s.scored,1);
 });
+
+/* ---- signal-channel rule checker ---- */
+test("règle gale : exemple calculé à la main", ()=>{
+  // 1,5x avec 1 gale, mise 10, doublée : [1.2, 1.6] = rouge puis green  ; [2] = green ; [1.1, 1.3] = rouge
+  const r=E.galeRule([1.2,1.6, 2, 1.1,1.3], {m:1.5, gales:1, stake:10});
+  assert.equal(r.cycles,3); assert.equal(r.greens,2); assert.equal(r.reds,1);
+  // -10 +20*0.5  | +10*0.5 | -10 -20  => 0 + 5 - 30 = -25
+  assert.equal(r.net,-25); assert.equal(r.staked, 10+20+10+10+20); assert.equal(r.worstLoss,30); assert.equal(r.maxRedRun,1);
+});
+test("règle gale : le taux de réussite suit le hasard, le solde reste négatif", ()=>{
+  const r=E.galeRule(fairRounds(60000, 12), {m:1.5, gales:1, stake:1});
+  assert.ok(Math.abs(r.theoHit-0.875)<0.002); assert.ok(Math.abs(r.hit-r.theoHit)<0.01, "hit "+r.hit);
+  assert.ok(r.roi<0, "roi "+r.roi); assert.ok(Math.abs(r.roi-(-0.03))<0.02, "roi "+r.roi);
+});
+test("règle gale : cycle incomplet en fin de données non compté", ()=>{ const r=E.galeRule([1.1], {m:1.5, gales:1}); assert.equal(r.cycles,0); });

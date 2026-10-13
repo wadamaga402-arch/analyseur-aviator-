@@ -48,6 +48,7 @@ Le bot tourne sur le serveur Cloudflare, pas dans la page web : il marche même 
 | `/historique [n]` | n dernières manches (20 par défaut, 50 max) |
 | `/stats` | nombre de manches, moyenne, médiane, répartition, qualité des données, signal |
 | `/signal` | STAR BOT SIGNAL, validation hors échantillon, estimations vs résultats, limites |
+| `/regle 1.5 1 10` | teste une règle de « signal » (encaissement, gales avec mise ×2, mise de départ) sur vos manches : greens, rouges, taux comparé au hasard, résultat en euros |
 | `/effacer` puis `/effacer oui` | efface l'historique du profil (confirmation valable 2 minutes) |
 | `/test` | 8 vérifications du moteur et du stockage ; si la réponse arrive, Telegram fonctionne |
 
